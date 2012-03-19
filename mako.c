@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <SDL.h>
+#include <SDL_video.h>
+
 #include "constants.h"
 
 static int32_t *m;
@@ -36,9 +39,9 @@ static int32_t mod(int32_t a, int32_t b)
 
 static int32_t load(int32_t addr)
 {
-	if(addr == RN || addr == KY || addr == CO) {
+	if(addr == RN || addr == CO) {
 		fprintf(stderr, "Unimplemented!\n");
-		exit(1);
+//		exit(1);
 	}
 	return m[addr];
 }
@@ -204,11 +207,55 @@ int main(int argc, char **argv)
 
 	memset(m + pos, 0, (alloc_size - pos) * sizeof *m);
 
-	while(m[PC] != -1)
-		tick();
+	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
+	atexit(SDL_Quit);
+
+	SDL_Surface *scr = SDL_SetVideoMode(360, 240, 32, SDL_SWSURFACE);
+	if(!scr) goto sdlerr;
+
+
+	while(m[PC] != -1) {
+		uint32_t start = SDL_GetTicks();
+		
+		while(m[PC] != -1 && m[m[PC]] != OP_SYNC)
+			tick();
+
+		SDL_Event event;		
+
+		while(SDL_PollEvent(&event)) {
+			switch(event.type) {
+			case SDL_KEYDOWN: case SDL_KEYUP:
+				switch(event.key.keysym.sym) {
+#define SET_KEY(sdl, mako) case sdl : m[KY] ^= mako ; break;
+				SET_KEY(SDLK_LEFT, KEY_LF);
+				SET_KEY(SDLK_RIGHT, KEY_RT);
+				SET_KEY(SDLK_UP, KEY_UP);
+				SET_KEY(SDLK_DOWN, KEY_DN);
+				SET_KEY(SDLK_RETURN, KEY_A);
+				SET_KEY(SDLK_SPACE, KEY_A);
+				SET_KEY(SDLK_z, KEY_A);
+				SET_KEY(SDLK_x, KEY_B);
+				SET_KEY(SDLK_LSHIFT, KEY_B);
+#undef SET_KEY
+				}
+				break;
+			case SDL_QUIT:
+				exit(0);
+			}
+		}
+		uint32_t total = SDL_GetTicks() - start;
+		
+		if(total < 1000/60)
+			SDL_Delay(1000/60 - total);
+
+		m[PC]++;
+	}
 	exit(0);
 
 onerr:
 	perror(argv[0]);
+	exit(1);
+sdlerr:
+	fprintf(stderr, "%s: %s\n", argv[0], SDL_GetError());
 	exit(1);
 }
