@@ -1,0 +1,214 @@
+#include <errno.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "constants.h"
+
+static int32_t *m;
+
+static void push(int32_t v)
+{
+	m[m[DP]++] = v;
+}
+
+static void rpush(int32_t v)
+{
+	m[m[RP]++] = v;
+}
+
+static int32_t pop()
+{
+	return m[--m[DP]];
+}
+
+static int32_t rpop()
+{
+	return m[--m[RP]];
+}
+
+static int32_t mod(int32_t a, int32_t b)
+{
+	a %= b;
+	return a < 0 ? a+b : a;
+}
+
+static int32_t load(int32_t addr)
+{
+	if(addr == RN || addr == KY || addr == CO) {
+		fprintf(stderr, "Unimplemented!\n");
+		exit(1);
+	}
+	return m[addr];
+}
+
+static void stor(int32_t addr, int32_t val)
+{
+	if(addr == CO)
+		putchar(val);
+	else
+		m[addr] = val;
+}
+
+void tick() {
+	int32_t o = m[m[PC]++];
+	int32_t a, b;
+
+	switch(o) {
+	case OP_CONST:
+		push(m[m[PC]++]);
+		break;
+	case OP_CALL:
+		rpush(m[PC]+1);
+		m[PC] = m[m[PC]];
+		break;
+	case OP_JUMP:
+		m[PC] = m[m[PC]];
+		break;
+	case OP_JUMPZ:
+		m[PC] = pop()==0 ? m[m[PC]] : m[PC]+1;
+		break;
+	case OP_JUMPIF:
+		m[PC] = pop()!=0 ? m[m[PC]] : m[PC]+1;
+		break;
+	case OP_LOAD:
+		push(load(pop()));
+		break;
+	case OP_STOR:
+		a = pop();
+		b = pop();
+		stor(a, b);
+		break;
+	case OP_RETURN:
+		m[PC] = rpop();
+		break;
+	case OP_DROP:
+		pop();
+		break;
+	case OP_SWAP:
+		a = pop();
+		b = pop();
+		push(a);
+		push(b);
+		break;
+	case OP_DUP:
+		push(m[m[DP]-1]);
+		break;
+	case OP_OVER:
+		push(m[m[DP]-2]);
+		break;
+	case OP_STR:
+		rpush(pop());
+		break;
+	case OP_RTS:
+		push(rpop());
+		break;
+	case OP_ADD:
+		a = pop();
+		b = pop();
+		push(b+a);
+		break;
+	case OP_SUB:
+		a = pop();
+		b = pop();
+		push(b-a);
+		break;
+	case OP_MUL:
+		a = pop();
+		b = pop();
+		push(b*a);
+		break;
+	case OP_DIV:
+		a = pop();
+		b = pop();
+		push(b/a);
+		break;
+	case OP_MOD:
+		a = pop();
+		b = pop();
+		push(mod(b,a));
+		break;
+	case OP_AND:
+		a = pop();
+		b = pop();
+		push(b&a);
+		break;
+	case OP_OR:
+		a = pop();
+		b = pop();
+		push(b|a);
+		break;
+	case OP_XOR:
+		a = pop();
+		b = pop();
+		push(b^a);
+		break;
+	case OP_NOT:
+		push(~pop());
+		break;
+	case OP_SGT:
+		a = pop();
+		b = pop();
+		push(b>a ? -1:0);
+		break;
+	case OP_SLT:
+		a = pop();
+		b = pop();
+		push(b<a ? -1:0);
+		break;
+	case OP_NEXT:
+		m[PC] = --m[m[RP]-1]<0 ? m[PC]+1 : m[m[PC]];
+		break;
+	}
+}
+
+int main(int argc, char **argv)
+{
+	if(argc == 1) {
+		fprintf(stderr, "Usage: %s FILE\n", argv[0]);
+		exit(1);
+	}
+
+	int pos = 0;
+
+	FILE *f = fopen(argv[1], "r");
+	if(!f || errno) goto onerr;
+	
+	m = calloc(1024, sizeof *m);
+	int alloc_size = 1024;
+	if(!m || errno) goto onerr;
+
+	while(!feof(f)) {
+		if(pos == alloc_size) {
+			alloc_size *= 2;
+			m = realloc(m, alloc_size * sizeof *m);
+			if(!m || errno) goto onerr;
+		}
+
+		uint8_t buf[4];
+
+		int n = fread(buf, sizeof *buf, 4, f);
+		if(errno) goto onerr;
+		if(n == 0) break;
+		if(n != 4) {
+			fprintf(stderr, "%s: The file was invalid.\n", argv[0]);
+			exit(1);
+		}
+		m[pos] = (int32_t)buf[0] << 24 | (int32_t)buf[1] << 16 | (int32_t)buf[2] << 8 | (int32_t)buf[3];
+		pos++;
+	}
+
+	fclose(f);
+	if(errno) goto onerr;
+
+	memset(m + pos, 0, (alloc_size - pos) * sizeof *m);
+
+	while(m[PC] != -1)
+		tick();
+	exit(0);
+
+onerr:
+	perror(argv[0]);
+	exit(1);
+}

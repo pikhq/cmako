@@ -1,0 +1,7 @@
+AC_INIT([cmako], [git])
+AM_INIT_AUTOMAKE([1.11 silent-rules foreign])
+
+AC_PROG_CC_C99
+
+AC_CONFIG_FILES([Makefile])
+AC_OUTPUT
