@@ -249,6 +249,7 @@ int main(int argc, char **argv)
 				SET_KEY(SDLK_z, KEY_A);
 				SET_KEY(SDLK_x, KEY_B);
 				SET_KEY(SDLK_LSHIFT, KEY_B);
+				SET_KEY(SDLK_RSHIFT, KEY_B);
 #undef SET_KEY
 				}
 				break;
