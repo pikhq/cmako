@@ -166,6 +166,19 @@ void tick() {
 	}
 }
 
+static void draw(SDL_Surface *scr)
+{
+	if(SDL_MUSTLOCK(scr))
+		while(SDL_LockSurface(scr) != 0) SDL_Delay(10);
+
+	SDL_FillRect(scr, NULL, m[CL]);
+
+	if(SDL_MUSTLOCK(scr))
+		SDL_UnlockSurface(scr);
+
+	SDL_UpdateRect(scr, 0, 0, 0, 0);
+}
+
 int main(int argc, char **argv)
 {
 	if(argc == 1) {
@@ -210,7 +223,7 @@ int main(int argc, char **argv)
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
 	atexit(SDL_Quit);
 
-	SDL_Surface *scr = SDL_SetVideoMode(360, 240, 32, SDL_SWSURFACE);
+	SDL_Surface *scr = SDL_SetVideoMode(320, 240, 32, SDL_SWSURFACE);
 	if(!scr) goto sdlerr;
 
 
@@ -243,6 +256,9 @@ int main(int argc, char **argv)
 				exit(0);
 			}
 		}
+
+		draw(scr);
+
 		uint32_t total = SDL_GetTicks() - start;
 		
 		if(total < 1000/60)
