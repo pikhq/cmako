@@ -192,7 +192,7 @@ static void draw_tile(SDL_Surface *scr, int32_t tile, int px, int py)
 static void draw_grid(SDL_Surface *scr, int zbit)
 {
 	int i = m[GP];
-	for(int y = 0; y < 31; y++)
+	for(int y = 0; y < 31; y++) {
 		for(int x = 0; x < 41; x++) {
 			if(!zbit && (m[i] & GRID_Z_MASK)) {
 				i++;
@@ -204,6 +204,8 @@ static void draw_grid(SDL_Surface *scr, int zbit)
 			}
 			draw_tile(scr, m[i++], x*8 - m[SX], y*8 - m[SY]);
 		}
+		i += m[GS];
+	}
 }
 
 static void draw(SDL_Surface *scr)
