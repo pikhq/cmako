@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include <SDL.h>
 #include <SDL_video.h>
@@ -39,10 +40,12 @@ static int32_t mod(int32_t a, int32_t b)
 
 static int32_t load(int32_t addr)
 {
-	if(addr == RN || addr == CO) {
+	if(addr == CO) {
 		fprintf(stderr, "Unimplemented!\n");
 //		exit(1);
 	}
+	if(addr == RN)
+		m[addr] = rand();
 	return m[addr];
 }
 
@@ -228,6 +231,8 @@ int main(int argc, char **argv)
 	}
 
 	int pos = 0;
+
+	srand(time(0));
 
 	FILE *f = fopen(argv[1], "r");
 	if(!f || errno) goto onerr;
