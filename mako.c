@@ -40,10 +40,8 @@ static int32_t mod(int32_t a, int32_t b)
 
 static int32_t load(int32_t addr)
 {
-	if(addr == CO) {
-		fprintf(stderr, "Unimplemented!\n");
-//		exit(1);
-	}
+	if(addr == CO)
+		return (int32_t)getchar();
 	if(addr == RN)
 		m[addr] = rand();
 	return m[addr];
