@@ -194,11 +194,11 @@ static void draw_grid(SDL_Surface *scr, int zbit)
 	int i = m[GP];
 	for(int y = 0; y < 31; y++) {
 		for(int x = 0; x < 41; x++) {
-			if(!zbit && (m[i] & GRID_Z_MASK)) {
+			if(!zbit && (m[i] & GRID_Z_MASK) != 0) {
 				i++;
 				continue;
 			}
-			if(!(zbit && (m[i] & GRID_Z_MASK))) {
+			if(zbit && (m[i] & GRID_Z_MASK) == 0) {
 				i++;
 				continue;
 			}
