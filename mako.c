@@ -187,6 +187,36 @@ static void draw_tile(SDL_Surface *scr, int32_t tile, int px, int py)
 			draw_pixel(scr, x + px, y + py, m[i++]);
 }
 
+static void draw_sprite(SDL_Surface *scr, int32_t tile, int32_t status, int px, int py)
+{
+	if (status % 2 == 0) return;
+	int w = (((status & 0x0F00) >> 8) + 1) * 8;
+	int h = (((status & 0xF000) >> 12) + 1) * 8;
+
+	int xd = 1;
+	int yd = 1;
+	int x0 = 0;
+	int y0 = 0;
+	int x1 = w;
+	int y1 = h;
+
+	if ((status & H_MIRROR_MASK) != 0) { 
+		xd = -1;
+		x0 = w - 1;
+		x1 = -1;
+	}
+	if((status & V_MIRROR_MASK) != 0) {
+		yd = -1;
+		y0 = h - 1;
+		y1 = -1;
+	}
+
+	int i = m[ST] + (tile * w * h);
+	for(int y = y0; y != y1; y+=yd)
+		for(int x = x0; x != x1; x+=xd)
+			draw_pixel(scr, x+px, y+py, m[i++]);
+}
+
 static void draw_grid(SDL_Surface *scr, int zbit)
 {
 	int i = m[GP];
@@ -214,6 +244,15 @@ static void draw(SDL_Surface *scr)
 	SDL_FillRect(scr, NULL, m[CL]);
 
 	draw_grid(scr, 0);
+
+	for(int spr = 0; spr < 1024; spr+=4) {
+		int32_t status = m[m[SP] + spr];
+		int32_t tile = m[m[SP] + spr + 1];
+		int32_t px = m[m[SP] + spr + 2];
+		int32_t py = m[m[SP] + spr + 3];
+		draw_sprite(scr, tile, status, px - m[SX], py - m[SY]);
+	}
+
 	draw_grid(scr, 1);
 
 	if(SDL_MUSTLOCK(scr))
