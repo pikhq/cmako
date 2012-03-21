@@ -166,12 +166,53 @@ void tick() {
 	}
 }
 
+static void draw_pixel(SDL_Surface *scr, uint32_t x, uint32_t y, uint32_t col)
+{
+	if((col & 0xFF000000) != 0xFF000000) return;
+	if(x < 0 || x >= 320 || y < 0 || y >= 240) return;
+	uint32_t *buf = scr->pixels;
+	buf[x + y*(scr->pitch/4)] = col;
+}
+
+static void draw_tile(SDL_Surface *scr, int32_t tile, int px, int py)
+{
+	if(tile < 0) return;
+	tile &= ~GRID_Z_MASK;
+
+	uint32_t i = m[GT] + tile * 64;
+	uint32_t *buf = scr->pixels;
+
+	for(int y = 0; y < 8; y++)
+		for(int x = 0; x < 8; x++)
+			draw_pixel(scr, x + px, y + py, m[i++]);
+}
+
+static void draw_grid(SDL_Surface *scr, int zbit)
+{
+	int i = m[GP];
+	for(int y = 0; y < 31; y++)
+		for(int x = 0; x < 41; x++) {
+			if(!zbit && (m[i] & GRID_Z_MASK)) {
+				i++;
+				continue;
+			}
+			if(!(zbit && (m[i] & GRID_Z_MASK))) {
+				i++;
+				continue;
+			}
+			draw_tile(scr, m[i++], x*8 - m[SX], y*8 - m[SY]);
+		}
+}
+
 static void draw(SDL_Surface *scr)
 {
 	if(SDL_MUSTLOCK(scr))
 		while(SDL_LockSurface(scr) != 0) SDL_Delay(10);
 
 	SDL_FillRect(scr, NULL, m[CL]);
+
+	draw_grid(scr, 0);
+	draw_grid(scr, 1);
 
 	if(SDL_MUSTLOCK(scr))
 		SDL_UnlockSurface(scr);
