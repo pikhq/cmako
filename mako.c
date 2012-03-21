@@ -11,6 +11,9 @@
 #include "constants.h"
 
 static int32_t *m;
+static int32_t key_buf[1024];
+static int key_buf_r, key_buf_w;
+static enum {KEY_READ, KEY_WRITE} key_buf_op = KEY_READ;
 
 static void push(int32_t v)
 {
@@ -42,6 +45,15 @@ static int32_t load(int32_t addr)
 {
 	if(addr == CO)
 		return (int32_t)getchar();
+	if(addr == KB) {
+		if(key_buf_r == key_buf_w && key_buf_op == KEY_READ)
+			return -1;
+
+		key_buf_r++;
+		key_buf_r %= 1024;
+		key_buf_op = KEY_READ;
+		return key_buf[key_buf_r];
+	}
 	if(addr == RN)
 		m[addr] = rand();
 	return m[addr];
@@ -306,6 +318,8 @@ int main(int argc, char **argv)
 
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
 	atexit(SDL_Quit);
+	SDL_EnableUNICODE(1);
+	SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
 
 	SDL_Surface *scr = SDL_SetVideoMode(320, 240, 32, SDL_SWSURFACE);
 	if(!scr) goto sdlerr;
@@ -322,7 +336,17 @@ int main(int argc, char **argv)
 
 		while(SDL_PollEvent(&event)) {
 			switch(event.type) {
-			case SDL_KEYDOWN: case SDL_KEYUP:
+			case SDL_KEYDOWN:
+				if(event.key.keysym.unicode) {
+					key_buf_w++;
+					key_buf_w %= 1024;
+					key_buf_op = KEY_WRITE;
+					if(event.key.keysym.unicode == '\r')
+						key_buf[key_buf_w] = '\n';
+					else
+						key_buf[key_buf_w] = event.key.keysym.unicode;
+				}
+			case SDL_KEYUP:
 				switch(event.key.keysym.sym) {
 #define SET_KEY(sdl, mako) case sdl : m[KY] ^= mako ; break;
 				SET_KEY(SDLK_LEFT, KEY_LF);
