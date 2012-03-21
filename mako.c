@@ -277,6 +277,7 @@ int main(int argc, char **argv)
 		
 		while(m[PC] != -1 && m[m[PC]] != OP_SYNC)
 			tick();
+		if(m[PC] == -1) exit(0);
 
 		SDL_Event event;		
 
