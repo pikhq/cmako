@@ -183,7 +183,6 @@ static void draw_tile(SDL_Surface *scr, int32_t tile, int px, int py)
 	tile &= ~GRID_Z_MASK;
 
 	uint32_t i = m[GT] + tile * 64;
-	uint32_t *buf = scr->pixels;
 
 	for(int y = 0; y < 8; y++)
 		for(int x = 0; x < 8; x++)
