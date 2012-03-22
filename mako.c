@@ -350,13 +350,7 @@ int main(int argc, char **argv)
 	SDL_AudioSpec desired = {.freq = 8000, .format = AUDIO_U8, .channels = 1, .callback = snd_callback, .samples=128};
 	SDL_AudioSpec obtained;
 
-	fprintf(stderr, "Requested audio:\n\tfreq: %d, format: %x, chan: %d, samples: %d\n",
-			desired.freq, desired.format, desired.channels, desired.samples);
-
 	if(SDL_OpenAudio(&desired, &obtained)) goto sdlerr;
-
-	fprintf(stderr, "Obtained audio:\n\tfreq: %d, format: %x, chan: %d, samples: %d\n",
-			obtained.freq, obtained.format, obtained.channels, obtained.samples);
 
 	SDL_PauseAudio(0);
 
