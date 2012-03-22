@@ -348,9 +348,8 @@ int main(int argc, char **argv)
 	SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
 
 	SDL_AudioSpec desired = {.freq = 8000, .format = AUDIO_U8, .channels = 1, .callback = snd_callback, .samples=128};
-	SDL_AudioSpec obtained;
 
-	if(SDL_OpenAudio(&desired, &obtained)) goto sdlerr;
+	if(SDL_OpenAudio(&desired, NULL)) goto sdlerr;
 
 	SDL_PauseAudio(0);
 
