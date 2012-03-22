@@ -48,8 +48,9 @@
 
 #define CO		13
 #define AU		14
+#define KB		15
 
-#define RESERVED_HEADER	15
+#define RESERVED_HEADER	16
 
 #define H_MIRROR_MASK	0x10000
 #define V_MIRROR_MASK	0x20000
