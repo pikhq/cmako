@@ -385,9 +385,16 @@ int main(int argc, char **argv)
 					else
 						key_buf[key_buf_w] = event.key.keysym.unicode;
 				}
+				// !!! Intentional fallthrough
 			case SDL_KEYUP:
 				switch(event.key.keysym.sym) {
-#define SET_KEY(sdl, mako) case sdl : m[KY] ^= mako ; break;
+#define SET_KEY(sdl, mako) \
+	case sdl: \
+		if (event.type == SDL_KEYDOWN) \
+			m[KY] |= mako; \
+		else \
+			m[KY] &= ~mako; \
+		break;
 				SET_KEY(SDLK_LEFT, KEY_LF);
 				SET_KEY(SDLK_RIGHT, KEY_RT);
 				SET_KEY(SDLK_UP, KEY_UP);
