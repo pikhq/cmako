@@ -10,9 +10,11 @@
 
 #include "constants.h"
 
+#define SND_BUF_SIZE 8192
+
 static int32_t *m;
 static int32_t key_buf[1024];
-static uint8_t snd_buf[8192];
+static uint8_t snd_buf[SND_BUF_SIZE];
 static int key_buf_r, key_buf_w;
 static int snd_buf_r = 1, snd_buf_w = 0;
 enum ring_buf { BUF_READ, BUF_WRITE };
@@ -68,13 +70,13 @@ static void stor(int32_t addr, int32_t val)
 		putchar(val);
 	else if(addr == AU) {
 		SDL_LockAudio();
-		while((snd_buf_w+1) % 8192 == snd_buf_r) {
+		while((snd_buf_w+1) % SND_BUF_SIZE == snd_buf_r) {
 			SDL_UnlockAudio();
 			SDL_Delay(0);
 			SDL_LockAudio();
 		}
 		snd_buf_w++;
-		snd_buf_w %= 8192;
+		snd_buf_w %= SND_BUF_SIZE;
 		snd_buf[snd_buf_w] = val;
 		SDL_UnlockAudio();
 	} else
@@ -291,9 +293,9 @@ static void snd_callback(void *userdata, uint8_t *stream, int len)
 {
 	while (snd_buf_r == snd_buf_w);
 
-	for(int i = 0; i < len && snd_buf_w != (snd_buf_r+1) % 8192; i++) {
+	for(int i = 0; i < len && snd_buf_w != (snd_buf_r+1) % SND_BUF_SIZE; i++) {
 		snd_buf_r++;
-		snd_buf_r %= 8192;
+		snd_buf_r %= SND_BUF_SIZE;
 		stream[i] = snd_buf[snd_buf_r];
 	}
 }
