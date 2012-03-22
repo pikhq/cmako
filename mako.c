@@ -328,11 +328,7 @@ int main(int argc, char **argv)
 		uint8_t buf[4];
 
 		int n = fread(buf, sizeof *buf, 4, f);
-		if(ferror(f)) {
-			// ferror doens't set errno
-			errno = 0;
-			goto onerr;
-		}
+		if(ferror(f)) goto onerr;
 		if(n == 0) break;
 		if(n != 4) {
 			fprintf(stderr, "%s: The file was invalid.\n", argv[0]);
