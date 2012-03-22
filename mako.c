@@ -12,8 +12,12 @@
 
 static int32_t *m;
 static int32_t key_buf[1024];
+static uint8_t snd_buf[8192];
 static int key_buf_r, key_buf_w;
-static enum {KEY_READ, KEY_WRITE} key_buf_op = KEY_READ;
+static int snd_buf_r, snd_buf_w;
+enum ring_buf { BUF_READ, BUF_WRITE };
+static enum ring_buf snd_buf_op = BUF_READ;
+static enum ring_buf key_buf_op = BUF_READ;
 
 static void push(int32_t v)
 {
@@ -46,12 +50,12 @@ static int32_t load(int32_t addr)
 	if(addr == CO)
 		return (int32_t)getchar();
 	if(addr == KB) {
-		if(key_buf_r == key_buf_w && key_buf_op == KEY_READ)
+		if(key_buf_r == key_buf_w && key_buf_op == BUF_READ)
 			return -1;
 
 		key_buf_r++;
 		key_buf_r %= 1024;
-		key_buf_op = KEY_READ;
+		key_buf_op = BUF_READ;
 		return key_buf[key_buf_r];
 	}
 	if(addr == RN)
@@ -63,11 +67,21 @@ static void stor(int32_t addr, int32_t val)
 {
 	if(addr == CO)
 		putchar(val);
-	else
+	else if(addr == AU) {
+		while(snd_buf_w == snd_buf_r && snd_buf_op == BUF_WRITE)
+			SDL_Delay(10);
+		SDL_LockAudio();
+		snd_buf_w++;
+		snd_buf_w %= 8192;
+		snd_buf_op = BUF_WRITE;
+		snd_buf[snd_buf_w] = val;
+		SDL_UnlockAudio();
+
+	} else
 		m[addr] = val;
 }
 
-void tick() {
+static void tick() {
 	int32_t o = m[m[PC]++];
 	int32_t a, b;
 
@@ -273,6 +287,21 @@ static void draw(SDL_Surface *scr)
 	SDL_UpdateRect(scr, 0, 0, 0, 0);
 }
 
+static void snd_callback(void *userdata, uint8_t *stream, int len)
+{
+	if(snd_buf_r == snd_buf_w && snd_buf_op == BUF_READ) {
+		return;
+	}
+
+	for(int i = 0; i <= len && snd_buf_w != snd_buf_r; i++) {
+		snd_buf_r++;
+		snd_buf_r %= 8192;
+		stream[i] = snd_buf[snd_buf_r];
+	}
+		
+	snd_buf_op = BUF_READ;
+}
+
 int main(int argc, char **argv)
 {
 	if(argc == 1) {
@@ -316,10 +345,15 @@ int main(int argc, char **argv)
 
 	memset(m + pos, 0, (alloc_size - pos) * sizeof *m);
 
-	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
+	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO);
 	atexit(SDL_Quit);
 	SDL_EnableUNICODE(1);
 	SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
+
+	SDL_AudioSpec hardware = {};
+	SDL_AudioSpec desired = {.freq = 8000, .format = AUDIO_U8, .channels = 1, .callback = snd_callback, .samples=1024};
+	if(SDL_OpenAudio(&desired, NULL)) goto sdlerr;
+	SDL_PauseAudio(0);
 
 	SDL_Surface *scr = SDL_SetVideoMode(320, 240, 32, SDL_SWSURFACE);
 	if(!scr) goto sdlerr;
@@ -340,7 +374,7 @@ int main(int argc, char **argv)
 				if(event.key.keysym.unicode) {
 					key_buf_w++;
 					key_buf_w %= 1024;
-					key_buf_op = KEY_WRITE;
+					key_buf_op = BUF_WRITE;
 					if(event.key.keysym.unicode == '\r')
 						key_buf[key_buf_w] = '\n';
 					else
