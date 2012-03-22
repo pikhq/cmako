@@ -355,8 +355,7 @@ int main(int argc, char **argv)
 
 	SDL_PauseAudio(0);
 
-	SDL_Surface *scr = SDL_SetVideoMode(320, 240, 32, SDL_SWSURFACE);
-	if(!scr) goto sdlerr;
+	SDL_Surface *scr = NULL;
 
 
 	while(m[PC] != -1) {
@@ -365,6 +364,11 @@ int main(int argc, char **argv)
 		while(m[PC] != -1 && m[m[PC]] != OP_SYNC)
 			tick();
 		if(m[PC] == -1) exit(0);
+
+		if(!scr) {
+			scr = SDL_SetVideoMode(320, 240, 32, SDL_SWSURFACE);
+			if(!scr) goto sdlerr;
+		}
 
 		SDL_Event event;		
 
