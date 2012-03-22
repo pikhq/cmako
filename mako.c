@@ -302,8 +302,6 @@ static void snd_callback(void *userdata, uint8_t *stream, int len)
 
 int main(int argc, char **argv)
 {
-	errno = 0;
-
 	if(argc == 1) {
 		fprintf(stderr, "Usage: %s FILE\n", argv[0]);
 		exit(1);
@@ -314,23 +312,27 @@ int main(int argc, char **argv)
 	srand(time(0));
 
 	FILE *f = fopen(argv[1], "rb");
-	if(!f || errno) goto onerr;
+	if(!f) goto onerr;
 	
 	m = calloc(1024, sizeof *m);
 	int alloc_size = 1024;
-	if(!m || errno) goto onerr;
+	if(!m) goto onerr;
 
 	while(!feof(f)) {
 		if(pos == alloc_size) {
 			alloc_size *= 2;
 			m = realloc(m, alloc_size * sizeof *m);
-			if(!m || errno) goto onerr;
+			if(!m) goto onerr;
 		}
 
 		uint8_t buf[4];
 
 		int n = fread(buf, sizeof *buf, 4, f);
-		if(errno) goto onerr;
+		if(ferror(f)) {
+			// ferror doens't set errno
+			errno = 0;
+			goto onerr;
+		}
 		if(n == 0) break;
 		if(n != 4) {
 			fprintf(stderr, "%s: The file was invalid.\n", argv[0]);
@@ -340,8 +342,7 @@ int main(int argc, char **argv)
 		pos++;
 	}
 
-	fclose(f);
-	if(errno) goto onerr;
+	if(fclose(f) != 0) goto onerr;
 
 	memset(m + pos, 0, (alloc_size - pos) * sizeof *m);
 
