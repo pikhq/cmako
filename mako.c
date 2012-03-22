@@ -10,7 +10,7 @@
 
 #include "constants.h"
 
-#define SND_BUF_SIZE 8192
+#define SND_BUF_SIZE 1024
 
 static int32_t *m;
 static int32_t key_buf[1024];
@@ -347,7 +347,7 @@ int main(int argc, char **argv)
 	SDL_EnableUNICODE(1);
 	SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
 
-	SDL_AudioSpec desired = {.freq = 8000, .format = AUDIO_U8, .channels = 1, .callback = snd_callback, .samples=1024};
+	SDL_AudioSpec desired = {.freq = 8000, .format = AUDIO_U8, .channels = 1, .callback = snd_callback, .samples=128};
 	SDL_AudioSpec obtained;
 
 	fprintf(stderr, "Requested audio:\n\tfreq: %d, format: %x, chan: %d, samples: %d\n",
