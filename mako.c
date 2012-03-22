@@ -313,7 +313,7 @@ int main(int argc, char **argv)
 
 	srand(time(0));
 
-	FILE *f = fopen(argv[1], "r");
+	FILE *f = fopen(argv[1], "rb");
 	if(!f || errno) goto onerr;
 	
 	m = calloc(1024, sizeof *m);
