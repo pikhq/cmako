@@ -14,9 +14,8 @@ static int32_t *m;
 static int32_t key_buf[1024];
 static uint8_t snd_buf[8192];
 static int key_buf_r, key_buf_w;
-static int snd_buf_r, snd_buf_w;
+static int snd_buf_r = 1, snd_buf_w = 0;
 enum ring_buf { BUF_READ, BUF_WRITE };
-static enum ring_buf snd_buf_op = BUF_READ;
 static enum ring_buf key_buf_op = BUF_READ;
 
 static void push(int32_t v)
@@ -68,15 +67,16 @@ static void stor(int32_t addr, int32_t val)
 	if(addr == CO)
 		putchar(val);
 	else if(addr == AU) {
-		while(snd_buf_w == snd_buf_r && snd_buf_op == BUF_WRITE)
-			SDL_Delay(10);
 		SDL_LockAudio();
+		while((snd_buf_w+1) % 8192 == snd_buf_r) {
+			SDL_UnlockAudio();
+			SDL_Delay(0);
+			SDL_LockAudio();
+		}
 		snd_buf_w++;
 		snd_buf_w %= 8192;
-		snd_buf_op = BUF_WRITE;
 		snd_buf[snd_buf_w] = val;
 		SDL_UnlockAudio();
-
 	} else
 		m[addr] = val;
 }
@@ -289,17 +289,13 @@ static void draw(SDL_Surface *scr)
 
 static void snd_callback(void *userdata, uint8_t *stream, int len)
 {
-	if(snd_buf_r == snd_buf_w && snd_buf_op == BUF_READ) {
-		return;
-	}
+	while (snd_buf_r == snd_buf_w);
 
-	for(int i = 0; i <= len && snd_buf_w != snd_buf_r; i++) {
+	for(int i = 0; i < len && snd_buf_w != (snd_buf_r+1) % 8192; i++) {
 		snd_buf_r++;
 		snd_buf_r %= 8192;
 		stream[i] = snd_buf[snd_buf_r];
 	}
-		
-	snd_buf_op = BUF_READ;
 }
 
 int main(int argc, char **argv)
@@ -352,9 +348,17 @@ int main(int argc, char **argv)
 	SDL_EnableUNICODE(1);
 	SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
 
-	SDL_AudioSpec hardware = {};
 	SDL_AudioSpec desired = {.freq = 8000, .format = AUDIO_U8, .channels = 1, .callback = snd_callback, .samples=1024};
-	if(SDL_OpenAudio(&desired, NULL)) goto sdlerr;
+	SDL_AudioSpec obtained;
+
+	fprintf(stderr, "Requested audio:\n\tfreq: %d, format: %x, chan: %d, samples: %d\n",
+			desired.freq, desired.format, desired.channels, desired.samples);
+
+	if(SDL_OpenAudio(&desired, &obtained)) goto sdlerr;
+
+	fprintf(stderr, "Obtained audio:\n\tfreq: %d, format: %x, chan: %d, samples: %d\n",
+			obtained.freq, obtained.format, obtained.channels, obtained.samples);
+
 	SDL_PauseAudio(0);
 
 	SDL_Surface *scr = SDL_SetVideoMode(320, 240, 32, SDL_SWSURFACE);
