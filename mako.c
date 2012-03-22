@@ -304,6 +304,8 @@ static void snd_callback(void *userdata, uint8_t *stream, int len)
 
 int main(int argc, char **argv)
 {
+	errno = 0;
+
 	if(argc == 1) {
 		fprintf(stderr, "Usage: %s FILE\n", argv[0]);
 		exit(1);
