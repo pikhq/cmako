@@ -20,6 +20,7 @@ static int key_buf_r, key_buf_w;
 static int snd_buf_r = 1, snd_buf_w = 0;
 enum ring_buf { BUF_READ, BUF_WRITE };
 static enum ring_buf key_buf_op = BUF_READ;
+static int sound_playing;
 
 static void push(int32_t v)
 {
@@ -70,6 +71,10 @@ static void stor(int32_t addr, int32_t val)
 	if(addr == CO)
 		putchar(val);
 	else if(addr == AU) {
+		if(!sound_playing) {
+			sound_playing = 1;
+			SDL_PauseAudio(0);
+		}
 		SDL_LockAudio();
 		while((snd_buf_w+1) % SND_BUF_SIZE == snd_buf_r) {
 			SDL_UnlockAudio();
@@ -352,8 +357,6 @@ int main(int argc, char **argv)
 	SDL_AudioSpec desired = {.freq = 8000, .format = AUDIO_U8, .channels = 1, .callback = snd_callback, .samples=128};
 
 	if(SDL_OpenAudio(&desired, NULL)) goto sdlerr;
-
-	SDL_PauseAudio(0);
 
 	SDL_Surface *scr = NULL;
 
