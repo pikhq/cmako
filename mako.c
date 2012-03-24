@@ -21,6 +21,11 @@ static int snd_buf_r = 1, snd_buf_w = 0;
 enum ring_buf { BUF_READ, BUF_WRITE };
 static enum ring_buf key_buf_op = BUF_READ;
 static int sound_playing;
+static uint32_t execution_start;
+
+static char *argv0;
+
+static void draw(SDL_Surface*);
 
 static void push(int32_t v)
 {
@@ -88,6 +93,70 @@ static void stor(int32_t addr, int32_t val)
 	} else
 		m[addr] = val;
 }
+
+static void sync() {
+	static SDL_Surface *scr = NULL;
+
+	if(!scr) {
+		scr = SDL_SetVideoMode(320, 240, 32, SDL_SWSURFACE);
+		if(!scr) {
+			fprintf(stderr, "%s: %s\n", argv0, SDL_GetError());
+			exit(1);
+		}
+	}
+
+	SDL_Event event;		
+
+	while(SDL_PollEvent(&event)) {
+		switch(event.type) {
+		case SDL_KEYDOWN:
+			if(event.key.keysym.unicode) {
+				key_buf_w++;
+				key_buf_w %= 1024;
+				key_buf_op = BUF_WRITE;
+				if(event.key.keysym.unicode == '\r')
+					key_buf[key_buf_w] = '\n';
+				else
+					key_buf[key_buf_w] = event.key.keysym.unicode;
+			}
+			// !!! Intentional fallthrough
+		case SDL_KEYUP:
+			switch(event.key.keysym.sym) {
+#define SET_KEY(sdl, mako) \
+	case sdl: \
+		if (event.type == SDL_KEYDOWN) \
+			m[KY] |= mako; \
+		else \
+			m[KY] &= ~mako; \
+		break;
+			SET_KEY(SDLK_LEFT, KEY_LF);
+			SET_KEY(SDLK_RIGHT, KEY_RT);
+			SET_KEY(SDLK_UP, KEY_UP);
+			SET_KEY(SDLK_DOWN, KEY_DN);
+			SET_KEY(SDLK_RETURN, KEY_A);
+			SET_KEY(SDLK_SPACE, KEY_A);
+			SET_KEY(SDLK_z, KEY_A);
+			SET_KEY(SDLK_x, KEY_B);
+			SET_KEY(SDLK_LSHIFT, KEY_B);
+			SET_KEY(SDLK_RSHIFT, KEY_B);
+#undef SET_KEY
+			}
+			break;
+		case SDL_QUIT:
+			exit(0);
+		}
+	}
+
+	draw(scr);
+
+	uint32_t total = SDL_GetTicks() - execution_start;
+		
+	if(total < 1000/60)
+		SDL_Delay(1000/60 - total);
+
+	execution_start = SDL_GetTicks();
+}
+
 
 static void tick() {
 	int32_t o = m[m[PC]++];
@@ -198,6 +267,11 @@ static void tick() {
 	case OP_NEXT:
 		m[PC] = --m[m[RP]-1]<0 ? m[PC]+1 : m[m[PC]];
 		break;
+	case OP_SYNC:
+		sync();
+		break;
+	case -1:
+		exit(0);
 	}
 }
 
@@ -313,6 +387,8 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	argv0 = argv[0];
+
 	int pos = 0;
 
 	srand(time(0));
@@ -358,73 +434,10 @@ int main(int argc, char **argv)
 
 	if(SDL_OpenAudio(&desired, NULL)) goto sdlerr;
 
-	SDL_Surface *scr = NULL;
+	execution_start = SDL_GetTicks();
 
-
-	while(m[PC] != -1) {
-		uint32_t start = SDL_GetTicks();
-		
-		while(m[PC] != -1 && m[m[PC]] != OP_SYNC)
-			tick();
-		if(m[PC] == -1) exit(0);
-
-		if(!scr) {
-			scr = SDL_SetVideoMode(320, 240, 32, SDL_SWSURFACE);
-			if(!scr) goto sdlerr;
-		}
-
-		SDL_Event event;		
-
-		while(SDL_PollEvent(&event)) {
-			switch(event.type) {
-			case SDL_KEYDOWN:
-				if(event.key.keysym.unicode) {
-					key_buf_w++;
-					key_buf_w %= 1024;
-					key_buf_op = BUF_WRITE;
-					if(event.key.keysym.unicode == '\r')
-						key_buf[key_buf_w] = '\n';
-					else
-						key_buf[key_buf_w] = event.key.keysym.unicode;
-				}
-				// !!! Intentional fallthrough
-			case SDL_KEYUP:
-				switch(event.key.keysym.sym) {
-#define SET_KEY(sdl, mako) \
-	case sdl: \
-		if (event.type == SDL_KEYDOWN) \
-			m[KY] |= mako; \
-		else \
-			m[KY] &= ~mako; \
-		break;
-				SET_KEY(SDLK_LEFT, KEY_LF);
-				SET_KEY(SDLK_RIGHT, KEY_RT);
-				SET_KEY(SDLK_UP, KEY_UP);
-				SET_KEY(SDLK_DOWN, KEY_DN);
-				SET_KEY(SDLK_RETURN, KEY_A);
-				SET_KEY(SDLK_SPACE, KEY_A);
-				SET_KEY(SDLK_z, KEY_A);
-				SET_KEY(SDLK_x, KEY_B);
-				SET_KEY(SDLK_LSHIFT, KEY_B);
-				SET_KEY(SDLK_RSHIFT, KEY_B);
-#undef SET_KEY
-				}
-				break;
-			case SDL_QUIT:
-				exit(0);
-			}
-		}
-
-		draw(scr);
-
-		uint32_t total = SDL_GetTicks() - start;
-		
-		if(total < 1000/60)
-			SDL_Delay(1000/60 - total);
-
-		m[PC]++;
-	}
-	exit(0);
+	while(1)
+		tick();
 
 onerr:
 	perror(argv[0]);
