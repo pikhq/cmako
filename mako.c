@@ -159,6 +159,9 @@ static void sync() {
 
 
 static void tick() {
+	if(m[PC] == -1)
+		exit(0);
+
 	int32_t o = m[m[PC]++];
 	int32_t a, b;
 
@@ -270,8 +273,6 @@ static void tick() {
 	case OP_SYNC:
 		sync();
 		break;
-	case -1:
-		exit(0);
 	}
 }
 
