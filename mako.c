@@ -381,6 +381,29 @@ static void snd_callback(void *userdata, uint8_t *stream, int len)
 	}
 }
 
+static void run_vm(int32_t *mem)
+{
+	m = mem;
+
+	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO | SDL_INIT_NOPARACHUTE);
+	signal(SIGINT, SIG_DFL);
+	atexit(SDL_Quit);
+	SDL_EnableUNICODE(1);
+	SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
+
+	SDL_AudioSpec desired = {.freq = 8000, .format = AUDIO_U8, .channels = 1, .callback = snd_callback, .samples=128};
+
+	if(SDL_OpenAudio(&desired, NULL)) {
+		fprintf(stderr, "%s: %s", argv0, SDL_GetError());
+		exit(1);
+	}
+
+	execution_start = SDL_GetTicks();
+
+	while(1)
+		tick();
+}
+
 int main(int argc, char **argv)
 {
 	if(argc == 1) {
@@ -397,15 +420,15 @@ int main(int argc, char **argv)
 	FILE *f = fopen(argv[1], "rb");
 	if(!f) goto onerr;
 	
-	m = calloc(1024, sizeof *m);
+	int32_t *mem = calloc(1024, sizeof *mem);
 	int alloc_size = 1024;
-	if(!m) goto onerr;
+	if(!mem) goto onerr;
 
 	while(!feof(f)) {
 		if(pos == alloc_size) {
 			alloc_size *= 2;
-			m = realloc(m, alloc_size * sizeof *m);
-			if(!m) goto onerr;
+			mem = realloc(mem, alloc_size * sizeof *mem);
+			if(!mem) goto onerr;
 		}
 
 		uint8_t buf[4];
@@ -417,28 +440,15 @@ int main(int argc, char **argv)
 			fprintf(stderr, "%s: The file was invalid.\n", argv[0]);
 			exit(1);
 		}
-		m[pos] = (int32_t)buf[0] << 24 | (int32_t)buf[1] << 16 | (int32_t)buf[2] << 8 | (int32_t)buf[3];
+		mem[pos] = (int32_t)buf[0] << 24 | (int32_t)buf[1] << 16 | (int32_t)buf[2] << 8 | (int32_t)buf[3];
 		pos++;
 	}
 
 	if(fclose(f) != 0) goto onerr;
 
-	memset(m + pos, 0, (alloc_size - pos) * sizeof *m);
+	memset(mem + pos, 0, (alloc_size - pos) * sizeof *mem);
 
-	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO | SDL_INIT_NOPARACHUTE);
-	signal(SIGINT, SIG_DFL);
-	atexit(SDL_Quit);
-	SDL_EnableUNICODE(1);
-	SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
-
-	SDL_AudioSpec desired = {.freq = 8000, .format = AUDIO_U8, .channels = 1, .callback = snd_callback, .samples=128};
-
-	if(SDL_OpenAudio(&desired, NULL)) goto sdlerr;
-
-	execution_start = SDL_GetTicks();
-
-	while(1)
-		tick();
+	run_vm(mem);
 
 onerr:
 	perror(argv[0]);
