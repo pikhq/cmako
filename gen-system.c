@@ -5,6 +5,7 @@
 int main(int argc, char **argv)
 {
 	printf("#include <stdint.h>\n"
+	       "#include <SDL.h>\n"
 	       "#include \"mako-vm.h\"\n"
 	       "char *argv0;\n"
 	       "int32_t mem[] = {");
