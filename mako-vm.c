@@ -1,15 +1,14 @@
-#include <errno.h>
 #include <signal.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <time.h>
 
 #include <SDL.h>
 #include <SDL_video.h>
 
 #include "constants.h"
+
+extern char *argv0;
 
 #define SND_BUF_SIZE 1024
 
@@ -23,7 +22,6 @@ static enum ring_buf key_buf_op = BUF_READ;
 static int sound_playing;
 static uint32_t execution_start;
 
-static char *argv0;
 
 static void draw(SDL_Surface*);
 
@@ -381,9 +379,11 @@ static void snd_callback(void *userdata, uint8_t *stream, int len)
 	}
 }
 
-static void run_vm(int32_t *mem)
+void run_vm(int32_t *mem)
 {
 	m = mem;
+	
+	srand(time(0));
 
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO | SDL_INIT_NOPARACHUTE);
 	signal(SIGINT, SIG_DFL);
@@ -402,58 +402,4 @@ static void run_vm(int32_t *mem)
 
 	while(1)
 		tick();
-}
-
-int main(int argc, char **argv)
-{
-	if(argc == 1) {
-		fprintf(stderr, "Usage: %s FILE\n", argv[0]);
-		exit(1);
-	}
-
-	argv0 = argv[0];
-
-	int pos = 0;
-
-	srand(time(0));
-
-	FILE *f = fopen(argv[1], "rb");
-	if(!f) goto onerr;
-	
-	int32_t *mem = calloc(1024, sizeof *mem);
-	int alloc_size = 1024;
-	if(!mem) goto onerr;
-
-	while(!feof(f)) {
-		if(pos == alloc_size) {
-			alloc_size *= 2;
-			mem = realloc(mem, alloc_size * sizeof *mem);
-			if(!mem) goto onerr;
-		}
-
-		uint8_t buf[4];
-
-		int n = fread(buf, sizeof *buf, 4, f);
-		if(ferror(f)) goto onerr;
-		if(n == 0) break;
-		if(n != 4) {
-			fprintf(stderr, "%s: The file was invalid.\n", argv[0]);
-			exit(1);
-		}
-		mem[pos] = (int32_t)buf[0] << 24 | (int32_t)buf[1] << 16 | (int32_t)buf[2] << 8 | (int32_t)buf[3];
-		pos++;
-	}
-
-	if(fclose(f) != 0) goto onerr;
-
-	memset(mem + pos, 0, (alloc_size - pos) * sizeof *mem);
-
-	run_vm(mem);
-
-onerr:
-	perror(argv[0]);
-	exit(1);
-sdlerr:
-	fprintf(stderr, "%s: %s\n", argv[0], SDL_GetError());
-	exit(1);
 }
