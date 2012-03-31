@@ -1,3 +1,7 @@
+#ifndef USE_GL
+#define USE_GL 0
+#endif
+
 #include <signal.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -5,6 +9,10 @@
 
 #include <SDL.h>
 #include <SDL_video.h>
+
+#if USE_GL == 1
+#include <GL/gl.h>
+#endif
 
 #include "constants.h"
 
@@ -92,11 +100,26 @@ static void stor(int32_t addr, int32_t val)
 		m[addr] = val;
 }
 
+#if USE_GL
+GLuint tex;
+#endif
+
 static void sync() {
 	static SDL_Surface *scr = NULL;
 
 	if(!scr) {
+#if USE_GL
+		scr = SDL_SetVideoMode(640, 480, 32, SDL_HWSURFACE | SDL_GL_DOUBLEBUFFER | SDL_OPENGL);
+		glMatrixMode(GL_PROJECTION);
+		glLoadIdentity();
+		glOrtho(0, 320, 0, 240, -1, 0);
+		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity();
+		glEnable(GL_TEXTURE_2D);
+		glGenTextures(1, &tex);
+#else
 		scr = SDL_SetVideoMode(320, 240, 32, SDL_SWSURFACE);
+#endif
 		if(!scr) {
 			fprintf(stderr, "%s: %s\n", argv0, SDL_GetError());
 			exit(1);
@@ -274,12 +297,20 @@ static void tick() {
 	}
 }
 
+#if USE_GL
+static uint32_t buf[240][320];
+#endif
+
 static void draw_pixel(SDL_Surface *scr, uint32_t x, uint32_t y, uint32_t col)
 {
 	if((col & 0xFF000000) != 0xFF000000) return;
 	if(x < 0 || x >= 320 || y < 0 || y >= 240) return;
+#if USE_GL
+	buf[y][x] = col;
+#else
 	uint32_t *buf = scr->pixels;
 	buf[x + y*(scr->pitch/4)] = col;
+#endif
 }
 
 static void draw_tile(SDL_Surface *scr, int32_t tile, int px, int py)
@@ -345,10 +376,16 @@ static void draw_grid(SDL_Surface *scr, int zbit)
 
 static void draw(SDL_Surface *scr)
 {
+#if USE_GL
+	for(int i = 0; i < 320; i++)
+		for(int j = 0; j < 240; j++)
+			buf[j][i] = m[CL];
+#else
 	if(SDL_MUSTLOCK(scr))
 		while(SDL_LockSurface(scr) != 0) SDL_Delay(10);
 
 	SDL_FillRect(scr, NULL, m[CL]);
+#endif
 
 	draw_grid(scr, 0);
 
@@ -362,10 +399,30 @@ static void draw(SDL_Surface *scr)
 
 	draw_grid(scr, 1);
 
+#if USE_GL
+	glClearColor(0, 0, 0, 1);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	glBindTexture(GL_TEXTURE_2D, tex);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, 3, 320, 240, 0, GL_BGRA, GL_UNSIGNED_BYTE, buf);
+	glBegin(GL_QUADS);
+		glTexCoord2f(0, 0); glVertex2f(0, 240);
+		glTexCoord2f(1, 0); glVertex2f(320, 240);
+		glTexCoord2f(1, 1); glVertex2f(320, 0);
+		glTexCoord2f(0, 1); glVertex2f(0, 0);
+	glEnd();
+	glFlush();
+	SDL_GL_SwapBuffers();
+#else
 	if(SDL_MUSTLOCK(scr))
 		SDL_UnlockSurface(scr);
 
 	SDL_UpdateRect(scr, 0, 0, 0, 0);
+#endif
 }
 
 static void snd_callback(void *userdata, uint8_t *stream, int len)
