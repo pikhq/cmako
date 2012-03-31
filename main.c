@@ -52,7 +52,7 @@ int main(int argc, char **argv)
 
 	memset(mem + pos, 0, (alloc_size - pos) * sizeof *mem);
 
-	run_vm(mem);
+	run_vm(mem, argv[1]);
 
 onerr:
 	perror(argv[0]);

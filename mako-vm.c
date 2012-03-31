@@ -436,7 +436,7 @@ static void snd_callback(void *userdata, uint8_t *stream, int len)
 	}
 }
 
-void run_vm(int32_t *mem)
+void run_vm(int32_t *mem, char *name)
 {
 	m = mem;
 	
@@ -447,6 +447,8 @@ void run_vm(int32_t *mem)
 	atexit(SDL_Quit);
 	SDL_EnableUNICODE(1);
 	SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
+	if(name)
+		SDL_WM_SetCaption(name, NULL);
 
 	SDL_AudioSpec desired = {.freq = 8000, .format = AUDIO_U8, .channels = 1, .callback = snd_callback, .samples=128};
 

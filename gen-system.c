@@ -7,6 +7,9 @@ int main(int argc, char **argv)
 	printf("#include <stdint.h>\n"
 	       "#include <SDL.h>\n"
 	       "#include \"mako-vm.h\"\n"
+	       "#ifndef NAME\n"
+	       "#define NAME \"\"\n"
+	       "#endif\n"
 	       "char *argv0;\n"
 	       "int32_t mem[] = {");
 	while(!feof(stdin)) {
@@ -24,7 +27,7 @@ int main(int argc, char **argv)
 	       "int main(int argc, char **argv)\n"
 	       "{\n"
 	       "\targv0 = argv[0];\n"
-	       "\trun_vm(mem);\n"
+	       "\trun_vm(mem, NAME);\n"
 	       "}\n");
 	exit(0);
 

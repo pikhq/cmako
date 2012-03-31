@@ -3,5 +3,5 @@
 
 #include <stdint.h>
 
-void run_vm(int32_t *mem);
+void run_vm(int32_t *mem, char *name);
 #endif
