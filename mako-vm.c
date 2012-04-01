@@ -29,7 +29,7 @@ enum ring_buf { BUF_READ, BUF_WRITE };
 static enum ring_buf key_buf_op = BUF_READ;
 static int sound_playing;
 static uint32_t execution_start;
-
+static int stored;
 
 static void draw(SDL_Surface*);
 
@@ -96,8 +96,10 @@ static void stor(int32_t addr, int32_t val)
 		snd_buf_w %= SND_BUF_SIZE;
 		snd_buf[snd_buf_w] = val;
 		SDL_UnlockAudio();
-	} else
+	} else {
+		stored = 1;
 		m[addr] = val;
+	}
 }
 
 #if USE_GL
@@ -376,53 +378,57 @@ static void draw_grid(SDL_Surface *scr, int zbit)
 
 static void draw(SDL_Surface *scr)
 {
+	if(stored) {
 #if USE_GL
-	for(int i = 0; i < 320; i++)
-		for(int j = 0; j < 240; j++)
-			buf[j][i] = m[CL];
+		for(int i = 0; i < 320; i++)
+			for(int j = 0; j < 240; j++)
+				buf[j][i] = m[CL];
 #else
-	if(SDL_MUSTLOCK(scr))
-		while(SDL_LockSurface(scr) != 0) SDL_Delay(10);
+		if(SDL_MUSTLOCK(scr))
+			while(SDL_LockSurface(scr) != 0) SDL_Delay(10);
 
-	SDL_FillRect(scr, NULL, m[CL]);
+		SDL_FillRect(scr, NULL, m[CL]);
 #endif
 
-	draw_grid(scr, 0);
+		draw_grid(scr, 0);
 
-	for(int spr = 0; spr < 1024; spr+=4) {
-		int32_t status = m[m[SP] + spr];
-		int32_t tile = m[m[SP] + spr + 1];
-		int32_t px = m[m[SP] + spr + 2];
-		int32_t py = m[m[SP] + spr + 3];
-		draw_sprite(scr, tile, status, px - m[SX], py - m[SY]);
-	}
+		for(int spr = 0; spr < 1024; spr+=4) {
+			int32_t status = m[m[SP] + spr];
+			int32_t tile = m[m[SP] + spr + 1];
+			int32_t px = m[m[SP] + spr + 2];
+			int32_t py = m[m[SP] + spr + 3];
+			draw_sprite(scr, tile, status, px - m[SX], py - m[SY]);
+		}
 
-	draw_grid(scr, 1);
+		draw_grid(scr, 1);
 
 #if USE_GL
-	glClearColor(0, 0, 0, 1);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		glClearColor(0, 0, 0, 1);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-	glBindTexture(GL_TEXTURE_2D, tex);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexImage2D(GL_TEXTURE_2D, 0, 3, 320, 240, 0, GL_BGRA, GL_UNSIGNED_BYTE, buf);
-	glBegin(GL_QUADS);
-		glTexCoord2f(0, 0); glVertex2f(0, 240);
-		glTexCoord2f(1, 0); glVertex2f(320, 240);
-		glTexCoord2f(1, 1); glVertex2f(320, 0);
-		glTexCoord2f(0, 1); glVertex2f(0, 0);
-	glEnd();
-	glFlush();
+		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity();
+		glBindTexture(GL_TEXTURE_2D, tex);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexImage2D(GL_TEXTURE_2D, 0, 3, 320, 240, 0, GL_BGRA, GL_UNSIGNED_BYTE, buf);
+		glBegin(GL_QUADS);
+			glTexCoord2f(0, 0); glVertex2f(0, 240);
+			glTexCoord2f(1, 0); glVertex2f(320, 240);
+			glTexCoord2f(1, 1); glVertex2f(320, 0);
+			glTexCoord2f(0, 1); glVertex2f(0, 0);
+		glEnd();
+		glFlush();
+	}
 	SDL_GL_SwapBuffers();
 #else
-	if(SDL_MUSTLOCK(scr))
-		SDL_UnlockSurface(scr);
+		if(SDL_MUSTLOCK(scr))
+			SDL_UnlockSurface(scr);
+	}
 
 	SDL_UpdateRect(scr, 0, 0, 0, 0);
 #endif
+	stored=0;
 }
 
 static void snd_callback(void *userdata, uint8_t *stream, int len)
