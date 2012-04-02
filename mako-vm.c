@@ -73,6 +73,8 @@ static int32_t load(int32_t addr)
 		return key_buf[key_buf_r];
 	} else if(addr == RN)
 		return rand();
+	else if(addr == DP)
+		return m[addr]-1;
 	else
 		return m[addr];
 }
@@ -206,14 +208,14 @@ static void tick() {
 		m[PC] = pop()!=0 ? m[m[PC]] : m[PC]+1;
 		break;
 	case OP_LOAD:
-		push(load(pop()));
+		m[m[DP]-1] = load(m[m[DP]-1]);
 		break;
 	case OP_STOR:
 		m[DP]-=2;
 		stor(m[m[DP]+1], m[m[DP]]);
 		break;
 	case OP_RETURN:
-		m[PC] = rpop();
+		m[PC] = m[--m[RP]];
 		break;
 	case OP_DROP:
 		pop();
