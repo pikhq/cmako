@@ -63,7 +63,7 @@ static int32_t load(int32_t addr)
 {
 	if(addr == CO)
 		return (int32_t)getchar();
-	if(addr == KB) {
+	else if(addr == KB) {
 		if(key_buf_r == key_buf_w && key_buf_op == BUF_READ)
 			return -1;
 
@@ -71,10 +71,10 @@ static int32_t load(int32_t addr)
 		key_buf_r %= 1024;
 		key_buf_op = BUF_READ;
 		return key_buf[key_buf_r];
-	}
-	if(addr == RN)
-		m[addr] = rand();
-	return m[addr];
+	} else if(addr == RN)
+		return rand();
+	else
+		return m[addr];
 }
 
 static void stor(int32_t addr, int32_t val)
