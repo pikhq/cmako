@@ -173,7 +173,7 @@ static void sync() {
 	draw(scr);
 
 	uint32_t total = SDL_GetTicks() - execution_start;
-		
+	
 	if(total < 1000/60)
 		SDL_Delay(1000/60 - total);
 
@@ -186,7 +186,7 @@ static void tick() {
 		exit(0);
 
 	int32_t o = m[m[PC]++];
-	int32_t a, b;
+	int32_t a;
 
 	switch(o) {
 	case OP_CONST:
@@ -209,9 +209,8 @@ static void tick() {
 		push(load(pop()));
 		break;
 	case OP_STOR:
-		a = pop();
-		b = pop();
-		stor(a, b);
+		m[DP]-=2;
+		stor(m[m[DP]+1], m[m[DP]]);
 		break;
 	case OP_RETURN:
 		m[PC] = rpop();
@@ -220,10 +219,9 @@ static void tick() {
 		pop();
 		break;
 	case OP_SWAP:
-		a = pop();
-		b = pop();
-		push(a);
-		push(b);
+		a = m[m[DP]-1];
+		m[m[DP]-1] = m[m[DP]-2];
+		m[m[DP]-2] = a;
 		break;
 	case OP_DUP:
 		push(m[m[DP]-1]);
@@ -238,57 +236,47 @@ static void tick() {
 		push(rpop());
 		break;
 	case OP_ADD:
-		a = pop();
-		b = pop();
-		push(b+a);
+		m[DP]--;
+		m[m[DP]-1] = m[m[DP]-1] + m[m[DP]];
 		break;
 	case OP_SUB:
-		a = pop();
-		b = pop();
-		push(b-a);
+		m[DP]--;
+		m[m[DP]-1] = m[m[DP]-1] - m[m[DP]];
 		break;
 	case OP_MUL:
-		a = pop();
-		b = pop();
-		push(b*a);
+		m[DP]--;
+		m[m[DP]-1] = m[m[DP]-1] * m[m[DP]];
 		break;
 	case OP_DIV:
-		a = pop();
-		b = pop();
-		push(b/a);
+		m[DP]--;
+		m[m[DP]-1] = m[m[DP]-1] / m[m[DP]];
 		break;
 	case OP_MOD:
-		a = pop();
-		b = pop();
-		push(mod(b,a));
+		m[DP]--;
+		m[m[DP]-1] = mod(m[m[DP]-1], m[m[DP]]);
 		break;
 	case OP_AND:
-		a = pop();
-		b = pop();
-		push(b&a);
+		m[DP]--;
+		m[m[DP]-1] = m[m[DP]-1] & m[m[DP]];
 		break;
 	case OP_OR:
-		a = pop();
-		b = pop();
-		push(b|a);
+		m[DP]--;
+		m[m[DP]-1] = m[m[DP]-1] | m[m[DP]];
 		break;
 	case OP_XOR:
-		a = pop();
-		b = pop();
-		push(b^a);
+		m[DP]--;
+		m[m[DP]-1] = m[m[DP]-1] ^ m[m[DP]];
 		break;
 	case OP_NOT:
-		push(~pop());
+		m[m[DP]-1] = ~m[m[DP]-1];
 		break;
 	case OP_SGT:
-		a = pop();
-		b = pop();
-		push(b>a ? -1:0);
+		m[DP]--;
+		m[m[DP]-1] = m[m[DP]-1]>m[m[DP]] ? -1 : 0;
 		break;
 	case OP_SLT:
-		a = pop();
-		b = pop();
-		push(b<a ? -1:0);
+		m[DP]--;
+		m[m[DP]-1] = m[m[DP]-1]<m[m[DP]] ? -1 : 0;
 		break;
 	case OP_NEXT:
 		m[PC] = --m[m[RP]-1]<0 ? m[PC]+1 : m[m[PC]];
