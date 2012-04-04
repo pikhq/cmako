@@ -184,109 +184,139 @@ static void sync() {
 
 
 static void tick() {
-	if(m[PC] == -1)
-		exit(0);
-
-	int32_t o = m[m[PC]++];
+	int32_t o;
 	int32_t a;
 
-	switch(o) {
-	case OP_CONST:
-		push(m[m[PC]++]);
-		break;
-	case OP_CALL:
-		rpush(m[PC]+1);
-		m[PC] = m[m[PC]];
-		break;
-	case OP_JUMP:
-		m[PC] = m[m[PC]];
-		break;
-	case OP_JUMPZ:
-		m[PC] = pop()==0 ? m[m[PC]] : m[PC]+1;
-		break;
-	case OP_JUMPIF:
-		m[PC] = pop()!=0 ? m[m[PC]] : m[PC]+1;
-		break;
-	case OP_LOAD:
-		m[m[DP]-1] = load(m[m[DP]-1]);
-		break;
-	case OP_STOR:
-		m[DP]-=2;
-		stor(m[m[DP]+1], m[m[DP]]);
-		break;
-	case OP_RETURN:
-		m[PC] = m[--m[RP]];
-		break;
-	case OP_DROP:
-		pop();
-		break;
-	case OP_SWAP:
-		a = m[m[DP]-1];
-		m[m[DP]-1] = m[m[DP]-2];
-		m[m[DP]-2] = a;
-		break;
-	case OP_DUP:
-		push(m[m[DP]-1]);
-		break;
-	case OP_OVER:
-		push(m[m[DP]-2]);
-		break;
-	case OP_STR:
-		rpush(pop());
-		break;
-	case OP_RTS:
-		push(rpop());
-		break;
-	case OP_ADD:
-		m[DP]--;
-		m[m[DP]-1] = m[m[DP]-1] + m[m[DP]];
-		break;
-	case OP_SUB:
-		m[DP]--;
-		m[m[DP]-1] = m[m[DP]-1] - m[m[DP]];
-		break;
-	case OP_MUL:
-		m[DP]--;
-		m[m[DP]-1] = m[m[DP]-1] * m[m[DP]];
-		break;
-	case OP_DIV:
-		m[DP]--;
-		m[m[DP]-1] = m[m[DP]-1] / m[m[DP]];
-		break;
-	case OP_MOD:
-		m[DP]--;
-		m[m[DP]-1] = mod(m[m[DP]-1], m[m[DP]]);
-		break;
-	case OP_AND:
-		m[DP]--;
-		m[m[DP]-1] = m[m[DP]-1] & m[m[DP]];
-		break;
-	case OP_OR:
-		m[DP]--;
-		m[m[DP]-1] = m[m[DP]-1] | m[m[DP]];
-		break;
-	case OP_XOR:
-		m[DP]--;
-		m[m[DP]-1] = m[m[DP]-1] ^ m[m[DP]];
-		break;
-	case OP_NOT:
-		m[m[DP]-1] = ~m[m[DP]-1];
-		break;
-	case OP_SGT:
-		m[DP]--;
-		m[m[DP]-1] = m[m[DP]-1]>m[m[DP]] ? -1 : 0;
-		break;
-	case OP_SLT:
-		m[DP]--;
-		m[m[DP]-1] = m[m[DP]-1]<m[m[DP]] ? -1 : 0;
-		break;
-	case OP_NEXT:
-		m[PC] = --m[m[RP]-1]<0 ? m[PC]+1 : m[m[PC]];
-		break;
-	case OP_SYNC:
-		sync();
-		break;
+#define STEP				\
+	if(m[PC] == -1) exit(0);	\
+	o = m[m[PC]++];			\
+	switch(o) {			\
+	case OP_CONST: goto CONST;	\
+	case OP_CALL: goto CALL;	\
+	case OP_JUMP: goto JUMP;	\
+	case OP_JUMPZ: goto JUMPZ;	\
+	case OP_JUMPIF: goto JUMPIF;	\
+	case OP_LOAD: goto LOAD;	\
+	case OP_STOR: goto STOR;	\
+	case OP_RETURN: goto RETURN;	\
+	case OP_DROP: goto DROP;	\
+	case OP_SWAP: goto SWAP;	\
+	case OP_DUP: goto DUP;		\
+	case OP_OVER: goto OVER;	\
+	case OP_STR: goto STR;		\
+	case OP_RTS: goto RTS;		\
+	case OP_ADD: goto ADD;		\
+	case OP_SUB: goto SUB;		\
+	case OP_MUL: goto MUL;		\
+	case OP_DIV: goto DIV;		\
+	case OP_MOD: goto MOD;		\
+	case OP_AND: goto AND;		\
+	case OP_OR: goto OR;		\
+	case OP_XOR: goto XOR;		\
+	case OP_NOT: goto NOT;		\
+	case OP_SGT: goto SGT;		\
+	case OP_SLT: goto SLT;		\
+	case OP_NEXT: goto NEXT;	\
+	case OP_SYNC: goto SYNC;	\
 	}
+	
+	STEP;
+
+CONST:
+	push(m[m[PC]++]);
+	STEP;
+CALL:
+	rpush(m[PC]+1);
+	m[PC] = m[m[PC]];
+	STEP;
+JUMP:
+	m[PC] = m[m[PC]];
+	STEP;
+JUMPZ:
+	m[PC] = pop()==0 ? m[m[PC]] : m[PC]+1;
+	STEP;
+JUMPIF:
+	m[PC] = pop()!=0 ? m[m[PC]] : m[PC]+1;
+	STEP;
+LOAD:
+	m[m[DP]-1] = load(m[m[DP]-1]);
+	STEP;
+STOR:
+	m[DP]-=2;
+	stor(m[m[DP]+1], m[m[DP]]);
+	STEP;
+RETURN:
+	m[PC] = m[--m[RP]];
+	STEP;
+DROP:
+	pop();
+	STEP;
+SWAP:
+	a = m[m[DP]-1];
+	m[m[DP]-1] = m[m[DP]-2];
+	m[m[DP]-2] = a;
+	STEP;
+DUP:
+	push(m[m[DP]-1]);
+	STEP;
+OVER:
+	push(m[m[DP]-2]);
+	STEP;
+STR:
+	rpush(pop());
+	STEP;
+RTS:
+	push(rpop());
+	STEP;
+ADD:
+	m[DP]--;
+	m[m[DP]-1] = m[m[DP]-1] + m[m[DP]];
+	STEP;
+SUB:
+	m[DP]--;
+	m[m[DP]-1] = m[m[DP]-1] - m[m[DP]];
+	STEP;
+MUL:
+	m[DP]--;
+	m[m[DP]-1] = m[m[DP]-1] * m[m[DP]];
+	STEP;
+DIV:
+	m[DP]--;
+	m[m[DP]-1] = m[m[DP]-1] / m[m[DP]];
+	STEP;
+MOD:
+	m[DP]--;
+	m[m[DP]-1] = mod(m[m[DP]-1], m[m[DP]]);
+	STEP;
+AND:
+	m[DP]--;
+	m[m[DP]-1] = m[m[DP]-1] & m[m[DP]];
+	STEP;
+OR:
+	m[DP]--;
+	m[m[DP]-1] = m[m[DP]-1] | m[m[DP]];
+	STEP;
+XOR:
+	m[DP]--;
+	m[m[DP]-1] = m[m[DP]-1] ^ m[m[DP]];
+	STEP;
+NOT:
+	m[m[DP]-1] = ~m[m[DP]-1];
+	STEP;
+SGT:
+	m[DP]--;
+	m[m[DP]-1] = m[m[DP]-1]>m[m[DP]] ? -1 : 0;
+	STEP;
+SLT:
+	m[DP]--;
+	m[m[DP]-1] = m[m[DP]-1]<m[m[DP]] ? -1 : 0;
+	STEP;
+NEXT:
+	m[PC] = --m[m[RP]-1]<0 ? m[PC]+1 : m[m[PC]];
+	STEP;
+SYNC:
+	sync();
+	STEP;
 }
 
 #if USE_GL
@@ -455,6 +485,5 @@ void run_vm(int32_t *mem, char *name)
 
 	execution_start = SDL_GetTicks();
 
-	while(1)
-		tick();
+	tick();
 }
