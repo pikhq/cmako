@@ -31,6 +31,10 @@ static int sound_playing;
 static uint32_t execution_start;
 static int stored;
 
+#if USE_GL
+static uint32_t buf[240][320];
+#endif
+
 static void draw(SDL_Surface*);
 
 static void push(int32_t v)
@@ -121,6 +125,10 @@ static void sync() {
 		glLoadIdentity();
 		glEnable(GL_TEXTURE_2D);
 		glGenTextures(1, &tex);
+		glBindTexture(GL_TEXTURE_2D, tex);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexImage2D(GL_TEXTURE_2D, 0, 3, 320, 240, 0, GL_BGRA, GL_UNSIGNED_BYTE, buf);
 #else
 		scr = SDL_SetVideoMode(320, 240, 32, SDL_SWSURFACE);
 #endif
@@ -175,7 +183,6 @@ static void sync() {
 	draw(scr);
 
 	uint32_t total = SDL_GetTicks() - execution_start;
-	
 	if(total < 1000/60)
 		SDL_Delay(1000/60 - total);
 
@@ -218,6 +225,7 @@ static void tick() {
 	case OP_SLT: goto SLT;		\
 	case OP_NEXT: goto NEXT;	\
 	case OP_SYNC: goto SYNC;	\
+	default: goto EXIT;		\
 	}
 	
 	STEP;
@@ -317,13 +325,12 @@ NEXT:
 SYNC:
 	sync();
 	STEP;
+
+EXIT:
+	exit(1);
 }
 
-#if USE_GL
-static uint32_t buf[240][320];
-#endif
-
-static void draw_pixel(SDL_Surface *scr, uint32_t x, uint32_t y, uint32_t col)
+static void draw_pixel(SDL_Surface *scr, int32_t x, int32_t y, uint32_t col)
 {
 	if((col & 0xFF000000) != 0xFF000000) return;
 	if(x < 0 || x >= 320 || y < 0 || y >= 240) return;
@@ -352,29 +359,25 @@ static void draw_sprite(SDL_Surface *scr, int32_t tile, int32_t status, int px, 
 	if (status % 2 == 0) return;
 	int w = (((status & 0x0F00) >> 8) + 1) * 8;
 	int h = (((status & 0xF000) >> 12) + 1) * 8;
-
-	int xd = 1;
-	int yd = 1;
-	int x0 = 0;
-	int y0 = 0;
-	int x1 = w;
-	int y1 = h;
-
-	if ((status & H_MIRROR_MASK) != 0) { 
-		xd = -1;
-		x0 = w - 1;
-		x1 = -1;
-	}
-	if((status & V_MIRROR_MASK) != 0) {
-		yd = -1;
-		y0 = h - 1;
-		y1 = -1;
-	}
-
 	int i = m[ST] + (tile * w * h);
-	for(int y = y0; y != y1; y+=yd)
-		for(int x = x0; x != x1; x+=xd)
-			draw_pixel(scr, x+px, y+py, m[i++]);
+
+	if((status & H_MIRROR_MASK) == 0 && (status & V_MIRROR_MASK) == 0) {
+		for(int y = 0; y != w; y++)
+			for(int x = 0; x != h; x++)
+				draw_pixel(scr, x+px, y+py, m[i++]);
+	} else if((status & H_MIRROR_MASK) == 0) {
+		for(int y = 0; y != w; y++)
+			for(int x = w; x != 0; x--)
+				draw_pixel(scr, x+px, y+py, m[i++]);
+	} else if((status & V_MIRROR_MASK) == 0) {
+		for(int y = w; y != 0; y--)
+			for(int x = 0; x != h; x++)
+				draw_pixel(scr, x+px, y+py, m[i++]);
+	} else {
+		for(int y = w; y != 0; y--)
+			for(int x = h; x != 0; x--)
+				draw_pixel(scr, x+px, y+py, m[i++]);
+	}
 }
 
 static void draw_grid(SDL_Surface *scr, int zbit)
@@ -423,15 +426,10 @@ static void draw(SDL_Surface *scr)
 		draw_grid(scr, 1);
 
 #if USE_GL
-		glClearColor(0, 0, 0, 1);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-		glMatrixMode(GL_MODELVIEW);
-		glLoadIdentity();
 		glBindTexture(GL_TEXTURE_2D, tex);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexImage2D(GL_TEXTURE_2D, 0, 3, 320, 240, 0, GL_BGRA, GL_UNSIGNED_BYTE, buf);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 320, 240, GL_BGRA, GL_UNSIGNED_BYTE, buf);
 		glBegin(GL_QUADS);
 			glTexCoord2f(0, 0); glVertex2f(0, 240);
 			glTexCoord2f(1, 0); glVertex2f(320, 240);
@@ -453,8 +451,6 @@ static void draw(SDL_Surface *scr)
 
 static void snd_callback(void *userdata, uint8_t *stream, int len)
 {
-	while (snd_buf_r == snd_buf_w);
-
 	for(int i = 0; i < len && snd_buf_w != (snd_buf_r+1) % SND_BUF_SIZE; i++) {
 		snd_buf_r++;
 		snd_buf_r %= SND_BUF_SIZE;
