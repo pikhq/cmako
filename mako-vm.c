@@ -29,7 +29,10 @@ enum ring_buf { BUF_READ, BUF_WRITE };
 static enum ring_buf key_buf_op = BUF_READ;
 static int sound_playing;
 static uint32_t execution_start;
-static int stored;
+static int32_t grid_end;
+static int32_t sprite_end;
+static int redraw_grid = 1;
+static int redraw_sprite = 1;
 
 #if USE_GL
 static uint32_t buf[240][320];
@@ -61,6 +64,37 @@ static int32_t mod(int32_t a, int32_t b)
 {
 	a %= b;
 	return a < 0 ? a+b : a;
+}
+
+static void get_grid_end()
+{
+	grid_end = 0;
+	for(int i = 0; i < 41*31; i++) {
+		int32_t tile = m[m[GP]+i];
+		if(tile < 0) continue;
+		int32_t cur_end = m[GT] + tile*8 + 8;
+		if(cur_end > grid_end)
+			cur_end = grid_end;
+	}
+}
+
+static void get_sprite_end()
+{
+	sprite_end = 0;
+	for(int i = 0; i < 1024; i+=4) {
+		int32_t status = m[m[SP]+i];
+		int32_t tile = m[m[SP]+i+1];
+
+		if(tile < 0) continue;
+
+		int w = (((status & 0x0F00) >> 8) + 1) * 8;
+		int h = (((status & 0xF000) >> 12) + 1) * 8;
+
+		int32_t cur_end = m[ST] + tile*w*h + w*h;
+		if(cur_end > sprite_end)
+			sprite_end = cur_end;
+	}
+
 }
 
 static int32_t load(int32_t addr)
@@ -102,8 +136,28 @@ static void stor(int32_t addr, int32_t val)
 		snd_buf_w %= SND_BUF_SIZE;
 		snd_buf[snd_buf_w] = val;
 		SDL_UnlockAudio();
+	} else if(addr == SX || addr == SY) {
+		redraw_grid = 1;
+		redraw_sprite = 1;
+		m[addr] = val;
+	} else if(addr == CL) {
+		redraw_grid = 1;
+		m[addr] = val;
+	} else if((addr >= m[SP] && addr <= m[SP] + 1024) || addr == SP) {
+		get_sprite_end();
+		redraw_sprite = 1;
+		m[addr] = val;
+	} else if((addr >= m[GP] && addr <= m[GP] + 41*31) || addr == GP) {
+		get_grid_end();
+		redraw_grid = 1;
+		m[addr] = val;
+	} else if((addr >= m[ST] && addr <= sprite_end) || addr == ST) {
+		redraw_sprite = 1;
+		m[addr] = val;
+	} else if((addr >= m[GT] && addr <= grid_end) || addr == GT) {
+		redraw_grid = 1;
+		m[addr] = val;
 	} else {
-		stored = 1;
 		m[addr] = val;
 	}
 }
@@ -401,7 +455,7 @@ static void draw_grid(SDL_Surface *scr, int zbit)
 
 static void draw(SDL_Surface *scr)
 {
-	if(stored) {
+	if(redraw_grid || redraw_sprite) {
 #if USE_GL
 		for(int i = 0; i < 320; i++)
 			for(int j = 0; j < 240; j++)
@@ -446,7 +500,8 @@ static void draw(SDL_Surface *scr)
 
 	SDL_UpdateRect(scr, 0, 0, 0, 0);
 #endif
-	stored=0;
+	redraw_grid=0;
+	redraw_sprite=0;
 }
 
 static void snd_callback(void *userdata, uint8_t *stream, int len)
@@ -478,6 +533,9 @@ void run_vm(int32_t *mem, char *name)
 		fprintf(stderr, "%s: %s", argv0, SDL_GetError());
 		exit(1);
 	}
+
+	get_grid_end();
+	get_sprite_end();
 
 	execution_start = SDL_GetTicks();
 
