@@ -143,7 +143,13 @@ static void stor(int32_t addr, int32_t val)
 	} else if(addr == CL) {
 		redraw_grid = 1;
 		m[addr] = val;
-	} else if((addr >= m[SP] && addr <= m[SP] + 1024) || addr == SP) {
+	} else if((addr >= m[SP] && addr <= m[SP] + 1024)) {
+		// If the write changes the status or the tile
+		if((addr - m[SP]) % 4 == 0 || (addr - m[SP]) % 4 == 1)
+			get_sprite_end();
+		redraw_sprite = 1;
+		m[addr] = val;
+	} else if(addr == SP) {
 		get_sprite_end();
 		redraw_sprite = 1;
 		m[addr] = val;
