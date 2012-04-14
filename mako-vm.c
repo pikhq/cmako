@@ -190,7 +190,7 @@ static void sync() {
 		}
 	}
 
-	SDL_Event event;		
+	SDL_Event event;
 
 	while(SDL_PollEvent(&event)) {
 		switch(event.type) {
@@ -235,7 +235,7 @@ static void sync() {
 	draw(scr);
 
 	uint32_t total = SDL_GetTicks() - execution_start;
-	
+
 	if(total < 1000/60)
 		SDL_Delay(1000/60 - total);
 
@@ -279,7 +279,7 @@ static void tick() {
 	case OP_NEXT: goto NEXT;	\
 	case OP_SYNC: goto SYNC;	\
 	}
-	
+
 	STEP;
 
 CONST:
@@ -395,6 +395,17 @@ static void draw_pixel(SDL_Surface *scr, uint32_t x, uint32_t y, uint32_t col)
 #endif
 }
 
+static void unsafe_draw_pixel(SDL_Surface *scr, int32_t x, int32_t y, uint32_t col)
+{
+	if((col & 0xFF000000) != 0xFF000000) return;
+#if USE_GL
+	buf[y][x] = col;
+#else
+	uint32_t *buf = scr->pixels;
+	buf[x + y*(scr->pitch/4)] = col;
+#endif
+}
+
 static void draw_tile(SDL_Surface *scr, int32_t tile, int32_t px, int32_t py)
 {
 	if(tile < 0) return;
@@ -402,9 +413,31 @@ static void draw_tile(SDL_Surface *scr, int32_t tile, int32_t px, int32_t py)
 
 	uint32_t i = m[GT] + tile * 64;
 
-	for(int y = py; y < 8 + py; y++)
-		for(int x = px; x < 8 + px; x++)
-			draw_pixel(scr, x, y, m[i++]);
+	int minx = 0;
+	int miny = 0;
+	int maxx = 8;
+	int maxy = 8;
+
+	if(px < 0)
+		minx = -px;
+	if(py < 0)
+		miny = -py;
+
+	if(px >= 312)
+		maxx = 319-px;
+	if(py >= 232)
+		maxy = 239-py;
+
+	i += 8 * miny;
+
+
+	for(int y = miny; y < maxy; y++)
+	{
+		i += minx;
+		for(int x = minx; x < maxx; x++)
+			unsafe_draw_pixel(scr, x + px, y + py, m[i++]);
+		i += (8-maxx);
+	}
 }
 
 static void draw_sprite(SDL_Surface *scr, int32_t tile, int32_t status, int32_t px, int32_t py)
@@ -420,7 +453,7 @@ static void draw_sprite(SDL_Surface *scr, int32_t tile, int32_t status, int32_t 
 	int x1 = w;
 	int y1 = h;
 
-	if ((status & H_MIRROR_MASK) != 0) { 
+	if ((status & H_MIRROR_MASK) != 0) {
 		xd = -1;
 		x0 = w - 1;
 		x1 = -1;
@@ -526,7 +559,7 @@ static void snd_callback(void *userdata, uint8_t *stream, int len)
 void run_vm(int32_t *mem, char *name)
 {
 	m = mem;
-	
+
 	srand(time(0));
 
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO | SDL_INIT_NOPARACHUTE);
