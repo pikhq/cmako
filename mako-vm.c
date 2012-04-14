@@ -385,7 +385,7 @@ static uint32_t buf[240][320];
 
 static void draw_pixel(SDL_Surface *scr, uint32_t x, uint32_t y, uint32_t col)
 {
-	if((col & 0xFF000000) != 0xFF000000) return;
+	if((col & 0xFF000000) ^ 0xFF000000) return;
 	if(x < 0 || x >= 320 || y < 0 || y >= 240) return;
 #if USE_GL
 	buf[y][x] = col;
@@ -395,19 +395,19 @@ static void draw_pixel(SDL_Surface *scr, uint32_t x, uint32_t y, uint32_t col)
 #endif
 }
 
-static void draw_tile(SDL_Surface *scr, int32_t tile, int px, int py)
+static void draw_tile(SDL_Surface *scr, int32_t tile, int32_t px, int32_t py)
 {
 	if(tile < 0) return;
 	tile &= ~GRID_Z_MASK;
 
 	uint32_t i = m[GT] + tile * 64;
 
-	for(int y = 0; y < 8; y++)
-		for(int x = 0; x < 8; x++)
-			draw_pixel(scr, x + px, y + py, m[i++]);
+	for(int y = py; y < 8 + py; y++)
+		for(int x = px; x < 8 + px; x++)
+			draw_pixel(scr, x, y, m[i++]);
 }
 
-static void draw_sprite(SDL_Surface *scr, int32_t tile, int32_t status, int px, int py)
+static void draw_sprite(SDL_Surface *scr, int32_t tile, int32_t status, int32_t px, int32_t py)
 {
 	if (status % 2 == 0) return;
 	int w = (((status & 0x0F00) >> 8) + 1) * 8;
@@ -434,7 +434,7 @@ static void draw_sprite(SDL_Surface *scr, int32_t tile, int32_t status, int px, 
 	int i = m[ST] + (tile * w * h);
 	for(int y = y0; y != y1; y+=yd)
 		for(int x = x0; x != x1; x+=xd)
-			draw_pixel(scr, x+px, y+py, m[i++]);
+			draw_pixel(scr, x + px, y + py, m[i++]);
 }
 
 static void draw_grid(SDL_Surface *scr, int zbit)
@@ -460,9 +460,9 @@ static void draw(SDL_Surface *scr)
 {
 	if(redraw_grid || redraw_sprite) {
 #if USE_GL
-		for(int i = 0; i < 320; i++)
-			for(int j = 0; j < 240; j++)
-				buf[j][i] = m[CL];
+		for(int y = 0; y < 240; y++)
+			for(int x = 0; x < 320; x++)
+				buf[y][x] = m[CL];
 #else
 		if(SDL_MUSTLOCK(scr))
 			while(SDL_LockSurface(scr) != 0) SDL_Delay(10);
