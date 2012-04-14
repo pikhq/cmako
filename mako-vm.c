@@ -397,7 +397,7 @@ static void draw_pixel(SDL_Surface *scr, uint32_t x, uint32_t y, uint32_t col)
 
 static void unsafe_draw_pixel(SDL_Surface *scr, int32_t x, int32_t y, uint32_t col)
 {
-	if((col & 0xFF000000) != 0xFF000000) return;
+	if((col & 0xFF000000) ^ 0xFF000000) return;
 #if USE_GL
 	buf[y][x] = col;
 #else
