@@ -430,9 +430,9 @@ static void draw_tile(SDL_Surface *scr, int32_t tile, int32_t px, int32_t py)
 		miny = -py;
 
 	if(px >= 312)
-		maxx = 319-px;
+		maxx = 320-px;
 	if(py >= 232)
-		maxy = 239-py;
+		maxy = 240-py;
 
 	i += 8 * miny;
 
