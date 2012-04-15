@@ -2,6 +2,12 @@
 #define USE_GL 0
 #endif
 
+#if (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR >= 1))
+#define PREFETCH(...) __builtin_prefetch(__VA_ARGS__)
+#else
+#define PREFETCH(...)
+#endif
+
 #include <signal.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -431,12 +437,18 @@ static void draw_tile(SDL_Surface *scr, int32_t tile, int32_t px, int32_t py)
 	i += 8 * miny;
 
 
-	for(int y = miny; y < maxy; y++)
-	{
+	for(int y = miny; y < maxy; y++) {
 		i += minx;
-		for(int x = minx; x < maxx; x++)
+		for(int x = minx; x < maxx; x++) {
 			unsafe_draw_pixel(scr, x + px, y + py, m[i++]);
+#if USE_GL
+			PREFETCH(&buf[y+py+1][x+px+1], 1);
+#else
+			PREFETCH(scr->pixels + x+px+1+(y+py+1)*(scr->pitch), 1);
+#endif
+		}
 		i += (8-maxx);
+		PREFETCH(&m[i], 0, 0);
 	}
 }
 
@@ -466,8 +478,10 @@ static void draw_sprite(SDL_Surface *scr, int32_t tile, int32_t status, int32_t 
 
 	int i = m[ST] + (tile * w * h);
 	for(int y = y0; y != y1; y+=yd)
-		for(int x = x0; x != x1; x+=xd)
+		for(int x = x0; x != x1; x+=xd) {
 			draw_pixel(scr, x + px, y + py, m[i++]);
+			PREFETCH(&m[i]);
+		}
 }
 
 static void draw_grid(SDL_Surface *scr, int zbit)
