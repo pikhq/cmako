@@ -40,6 +40,16 @@ static int32_t sprite_end;
 static int redraw_grid = 1;
 static int redraw_sprite = 1;
 
+#if USE_GL
+static uint32_t buf[240][320];
+#else
+static uint32_t (*buf)[320];
+#endif
+
+#if USE_GL
+GLuint tex;
+#endif
+
 static void draw(SDL_Surface*);
 
 static void push(int32_t v)
@@ -170,10 +180,6 @@ static void stor(int32_t addr, int32_t val)
 	}
 }
 
-#if USE_GL
-GLuint tex;
-#endif
-
 static void sync() {
 	static SDL_Surface *scr = NULL;
 
@@ -189,6 +195,7 @@ static void sync() {
 		glGenTextures(1, &tex);
 #else
 		scr = SDL_SetVideoMode(320, 240, 32, SDL_SWSURFACE);
+		buf = scr->pixels;
 #endif
 		if(!scr) {
 			fprintf(stderr, "%s: %s\n", argv0, SDL_GetError());
@@ -385,34 +392,22 @@ SYNC:
 	STEP;
 }
 
-#if USE_GL
-static uint32_t buf[240][320];
-#endif
-
-static void draw_pixel(SDL_Surface *scr, uint32_t x, uint32_t y, uint32_t col)
+static void draw_pixel(uint32_t x, uint32_t y, uint32_t col)
 {
 	if((col & 0xFF000000) ^ 0xFF000000) return;
 	if(x < 0 || x >= 320 || y < 0 || y >= 240) return;
-#if USE_GL
+
 	buf[y][x] = col;
-#else
-	uint32_t *buf = scr->pixels;
-	buf[x + y*(scr->pitch/4)] = col;
-#endif
 }
 
-static void unsafe_draw_pixel(SDL_Surface *scr, int32_t x, int32_t y, uint32_t col)
+static void unsafe_draw_pixel(int32_t x, int32_t y, uint32_t col)
 {
 	if((col & 0xFF000000) ^ 0xFF000000) return;
-#if USE_GL
+
 	buf[y][x] = col;
-#else
-	uint32_t *buf = scr->pixels;
-	buf[x + y*(scr->pitch/4)] = col;
-#endif
 }
 
-static void draw_tile(SDL_Surface *scr, int32_t tile, int32_t px, int32_t py)
+static void draw_tile(int32_t tile, int32_t px, int32_t py)
 {
 	if(tile < 0) return;
 	tile &= ~GRID_Z_MASK;
@@ -440,19 +435,15 @@ static void draw_tile(SDL_Surface *scr, int32_t tile, int32_t px, int32_t py)
 	for(int y = miny; y < maxy; y++) {
 		i += minx;
 		for(int x = minx; x < maxx; x++) {
-			unsafe_draw_pixel(scr, x + px, y + py, m[i++]);
-#if USE_GL
+			unsafe_draw_pixel(x + px, y + py, m[i++]);
 			PREFETCH(&buf[y+py+1][x+px+1], 1);
-#else
-			PREFETCH(scr->pixels + x+px+1+(y+py+1)*(scr->pitch), 1);
-#endif
 		}
 		i += (8-maxx);
 		PREFETCH(&m[i], 0, 0);
 	}
 }
 
-static void draw_sprite(SDL_Surface *scr, int32_t tile, int32_t status, int32_t px, int32_t py)
+static void draw_sprite(int32_t tile, int32_t status, int32_t px, int32_t py)
 {
 	if (status % 2 == 0) return;
 	int w = (((status & 0x0F00) >> 8) + 1) * 8;
@@ -479,12 +470,12 @@ static void draw_sprite(SDL_Surface *scr, int32_t tile, int32_t status, int32_t 
 	int i = m[ST] + (tile * w * h);
 	for(int y = y0; y != y1; y+=yd)
 		for(int x = x0; x != x1; x+=xd) {
-			draw_pixel(scr, x + px, y + py, m[i++]);
+			draw_pixel(x + px, y + py, m[i++]);
 			PREFETCH(&m[i]);
 		}
 }
 
-static void draw_grid(SDL_Surface *scr, int zbit)
+static void draw_grid(int zbit)
 {
 	int i = m[GP];
 	for(int y = 0; y < 31; y++) {
@@ -497,7 +488,7 @@ static void draw_grid(SDL_Surface *scr, int zbit)
 				i++;
 				continue;
 			}
-			draw_tile(scr, m[i++], x*8 - m[SX], y*8 - m[SY]);
+			draw_tile(m[i++], x*8 - m[SX], y*8 - m[SY]);
 		}
 		i += m[GS];
 	}
@@ -517,17 +508,17 @@ static void draw(SDL_Surface *scr)
 		SDL_FillRect(scr, NULL, m[CL]);
 #endif
 
-		draw_grid(scr, 0);
+		draw_grid(0);
 
 		for(int spr = 0; spr < 1024; spr+=4) {
 			int32_t status = m[m[SP] + spr];
 			int32_t tile = m[m[SP] + spr + 1];
 			int32_t px = m[m[SP] + spr + 2];
 			int32_t py = m[m[SP] + spr + 3];
-			draw_sprite(scr, tile, status, px - m[SX], py - m[SY]);
+			draw_sprite(tile, status, px - m[SX], py - m[SY]);
 		}
 
-		draw_grid(scr, 1);
+		draw_grid(1);
 
 #if USE_GL
 		glClearColor(0, 0, 0, 1);
