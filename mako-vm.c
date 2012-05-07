@@ -16,7 +16,7 @@
 #include <SDL.h>
 #include <SDL_video.h>
 
-#if USE_GL == 1
+#if USE_GL
 #include <GL/gl.h>
 #endif
 
