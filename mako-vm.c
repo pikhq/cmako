@@ -21,10 +21,6 @@
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef USE_GL
-#define USE_GL 0
-#endif
-
 #if (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR >= 1))
 #define PREFETCH(...) __builtin_prefetch(__VA_ARGS__)
 #else
