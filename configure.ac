@@ -21,10 +21,11 @@
 
 AC_INIT([cmako], [git])
 AC_CONFIG_AUX_DIR([build-aux])
-AM_INIT_AUTOMAKE([1.11 silent-rules foreign])
+AM_INIT_AUTOMAKE([1.11 silent-rules foreign subdir-objects])
 AM_SILENT_RULES([yes])
 
 AC_PROG_CC_C99
+AM_PROG_CC_C_O
 
 AC_ARG_WITH([gl], AS_HELP_STRING([--with-gl], [Build with OpenGL accelerated graphics]), [], [with_gl=check])
 
