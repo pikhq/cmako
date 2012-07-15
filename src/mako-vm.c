@@ -226,6 +226,13 @@ static void sync() {
 
 	while(SDL_PollEvent(&event)) {
 		switch(event.type) {
+		case SDL_VIDEOEXPOSE:
+#ifdef USE_GL
+			SDL_GL_SwapBuffers();
+#else
+			SDL_UpdateRect(scr, 0, 0, 0, 0);
+#endif
+			break;
 		case SDL_KEYDOWN:
 			if(event.key.keysym.unicode) {
 				key_buf_w++;
@@ -556,15 +563,14 @@ static void draw(SDL_Surface *scr)
 			glTexCoord2f(0, 1); glVertex2f(0, 0);
 		glEnd();
 		glFlush();
-	}
-	SDL_GL_SwapBuffers();
+		SDL_GL_SwapBuffers();
 #else
 		if(SDL_MUSTLOCK(scr))
 			SDL_UnlockSurface(scr);
-	}
 
-	SDL_UpdateRect(scr, 0, 0, 0, 0);
+		SDL_UpdateRect(scr, 0, 0, 0, 0);
 #endif
+	}
 	redraw_grid=0;
 	redraw_sprite=0;
 }
