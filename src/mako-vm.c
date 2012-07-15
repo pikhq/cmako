@@ -153,6 +153,9 @@ static void stor(int32_t addr, int32_t val)
 	if(addr == CO)
 		putchar(val);
 	else if(addr == AU) {
+		if(sound_playing == -1)
+			return;
+
 		if(!sound_playing) {
 			sound_playing = 1;
 			SDL_PauseAudio(0);
@@ -603,8 +606,8 @@ void run_vm(int32_t *mem, char *name)
 	SDL_AudioSpec desired = {.freq = 8000, .format = AUDIO_U8, .channels = 1, .callback = snd_callback, .samples=128};
 
 	if(SDL_OpenAudio(&desired, NULL)) {
-		fprintf(stderr, "%s: %s", argv0, SDL_GetError());
-		exit(1);
+		fprintf(stderr, "%s: %s\n", argv0, SDL_GetError());
+		sound_playing = -1;
 	}
 
 	get_grid_end();
