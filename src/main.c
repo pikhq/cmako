@@ -74,7 +74,10 @@ void write_console(int32_t c)
 
 void write_sound(uint8_t sample)
 {
-	if(sound_playing != -1) {
+	if(sound_playing == -1)
+		return;
+
+	if(!sound_playing) {
 		sound_playing = 1;
 		SDL_PauseAudio(0);
 	}
@@ -157,8 +160,10 @@ static void init_sdl()
 	SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
 
 	SDL_AudioSpec desired = {.freq = 8000, .format = AUDIO_U8, .channels = 1, .callback = snd_callback, .samples=128};
-	if(SDL_OpenAudio(&desired, NULL))
+	if(SDL_OpenAudio(&desired, NULL)) {
 		fprintf(stderr, "%s\n", SDL_GetError());
+		playing_audio = -1;
+	}
 
 	frame_start = SDL_GetTicks();
 }
