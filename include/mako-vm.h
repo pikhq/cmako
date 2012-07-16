@@ -3,5 +3,9 @@
 
 #include <stdint.h>
 
-void run_vm(int32_t *mem, char *name);
+void init_vm(int32_t *mem);
+void run_vm();
+
+extern uint32_t framebuf[320][240];
+
 #endif
