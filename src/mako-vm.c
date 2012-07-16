@@ -35,10 +35,6 @@
 #include "ui.h"
 
 static int32_t *m;
-static int32_t grid_end;
-static int32_t sprite_end;
-static int redraw_grid = 1;
-static int redraw_sprite = 1;
 
 uint32_t framebuf[240][320];
 
@@ -70,37 +66,6 @@ static int32_t mod(int32_t a, int32_t b)
 	return a < 0 ? a+b : a;
 }
 
-static void get_grid_end()
-{
-	grid_end = 0;
-	for(int i = 0; i < 41*31; i++) {
-		int32_t tile = m[m[GP]+i];
-		if(tile < 0) continue;
-		int32_t cur_end = m[GT] + tile*8 + 8;
-		if(cur_end > grid_end)
-			cur_end = grid_end;
-	}
-}
-
-static void get_sprite_end()
-{
-	sprite_end = 0;
-	for(int i = 0; i < 1024; i+=4) {
-		int32_t status = m[m[SP]+i];
-		int32_t tile = m[m[SP]+i+1];
-
-		if(tile < 0) continue;
-
-		int w = (((status & 0x0F00) >> 8) + 1) * 8;
-		int h = (((status & 0xF000) >> 12) + 1) * 8;
-
-		int32_t cur_end = m[ST] + tile*w*h + w*h;
-		if(cur_end > sprite_end)
-			sprite_end = cur_end;
-	}
-
-}
-
 static int32_t load(int32_t addr)
 {
 	switch(addr) {
@@ -128,37 +93,7 @@ static void stor(int32_t addr, int32_t val)
 	case AU:
 		write_sound(val);
 		break;
-
-	case SX: case SY:
-		redraw_grid = 1;
-		redraw_sprite = 1;
-		m[addr] = val;
-		break;
-
-	case GP:
-		get_grid_end();
-	case CL: case GT:
-		redraw_grid = 1;
-		m[addr] = val;
-		break;
-
-	case SP:
-		get_sprite_end();
-	case ST:
-		redraw_sprite = 1;
-		m[addr] = val;
-		break;
-
 	default:
-		if(addr >= m[GP] && addr <= m[GP] + 41*31) {
-			get_grid_end();
-			redraw_grid = 1;
-		} else if(addr >= m[ST] && addr <= sprite_end) {
-			redraw_sprite = 1;
-		} else if(addr >= m[GT] && addr <= grid_end) {
-			redraw_grid = 1;
-		}
-
 		m[addr] = val;
 	}
 }
@@ -172,13 +107,6 @@ static void draw_pixel(uint32_t x, uint32_t y, uint32_t col)
 	framebuf[y][x] = col;
 }
 
-static void unsafe_draw_pixel(int32_t x, int32_t y, uint32_t col)
-{
-	if((col & 0xFF000000) ^ 0xFF000000) return;
-
-	framebuf[y][x] = col;
-}
-
 static void draw_tile(int32_t tile, int32_t px, int32_t py)
 {
 	if(tile < 0) return;
@@ -186,33 +114,11 @@ static void draw_tile(int32_t tile, int32_t px, int32_t py)
 
 	uint32_t i = m[GT] + tile * 64;
 
-	int minx = 0;
-	int miny = 0;
-	int maxx = 8;
-	int maxy = 8;
-
-	if(px < 0)
-		minx = -px;
-	if(py < 0)
-		miny = -py;
-
-	if(px >= 312)
-		maxx = 320-px;
-	if(py >= 232)
-		maxy = 240-py;
-
-	i += 8 * miny;
-
-
-	for(int y = miny; y < maxy; y++) {
-		i += minx;
-		for(int x = minx; x < maxx; x++) {
-			unsafe_draw_pixel(x + px, y + py, m[i++]);
-			PREFETCH(&framebuf[y+py+1][x+px+1], 1);
+	for(int y = py; y < 8 + py; y++)
+		for(int x = px; x < 8 + px; x++) {
+			draw_pixel(x, y, m[i++]);
+			PREFETCH(&m[i]);
 		}
-		i += (8-maxx);
-		PREFETCH(&m[i], 0, 0);
-	}
 }
 
 static void draw_sprite(int32_t tile, int32_t status, int32_t px, int32_t py)
@@ -268,26 +174,21 @@ static void draw_grid(int zbit)
 
 static void draw()
 {
-	if(redraw_grid || redraw_sprite) {
-		for(int y = 0; y < 240; y++)
-			for(int x = 0; x < 320; x++)
-				framebuf[y][x] = m[CL];
+	for(int y = 0; y < 240; y++)
+		for(int x = 0; x < 320; x++)
+			framebuf[y][x] = m[CL];
 
-		draw_grid(0);
+	draw_grid(0);
 
-		for(int spr = 0; spr < 1024; spr+=4) {
-			int32_t status = m[m[SP] + spr];
-			int32_t tile = m[m[SP] + spr + 1];
-			int32_t px = m[m[SP] + spr + 2];
-			int32_t py = m[m[SP] + spr + 3];
-			draw_sprite(tile, status, px - m[SX], py - m[SY]);
-		}
-
-		draw_grid(1);
-
+	for(int spr = 0; spr < 1024; spr+=4) {
+		int32_t status = m[m[SP] + spr];
+		int32_t tile = m[m[SP] + spr + 1];
+		int32_t px = m[m[SP] + spr + 2];
+		int32_t py = m[m[SP] + spr + 3];
+		draw_sprite(tile, status, px - m[SX], py - m[SY]);
 	}
-	redraw_grid=0;
-	redraw_sprite=0;
+
+	draw_grid(1);
 }
 
 void run_vm() {
@@ -435,7 +336,4 @@ void init_vm(int32_t *mem)
 {
 	m = mem;
 	srand(time(0));
-
-	get_grid_end();
-	get_sprite_end();
 }
