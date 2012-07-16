@@ -162,7 +162,7 @@ static void init_sdl()
 	SDL_AudioSpec desired = {.freq = 8000, .format = AUDIO_U8, .channels = 1, .callback = snd_callback, .samples=128};
 	if(SDL_OpenAudio(&desired, NULL)) {
 		fprintf(stderr, "%s\n", SDL_GetError());
-		playing_audio = -1;
+		sound_playing = -1;
 	}
 
 	frame_start = SDL_GetTicks();
