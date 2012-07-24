@@ -325,5 +325,5 @@ SYNC:
 void init_vm(int32_t *mem)
 {
 	m = mem;
-	srand(time(0));
+	srand(m[RN]);
 }
