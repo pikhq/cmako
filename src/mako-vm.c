@@ -21,12 +21,6 @@
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#if (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR >= 1))
-#define PREFETCH(...) __builtin_prefetch(__VA_ARGS__)
-#else
-#define PREFETCH(...)
-#endif
-
 #include <stdint.h>
 #include <stdlib.h>
 #include <time.h>
@@ -115,10 +109,8 @@ static void draw_tile(int32_t tile, int32_t px, int32_t py)
 	uint32_t i = m[GT] + tile * 64;
 
 	for(int y = py; y < 8 + py; y++)
-		for(int x = px; x < 8 + px; x++) {
+		for(int x = px; x < 8 + px; x++)
 			draw_pixel(x, y, m[i++]);
-			PREFETCH(&m[i]);
-		}
 }
 
 static void draw_sprite(int32_t tile, int32_t status, int32_t px, int32_t py)
@@ -147,10 +139,8 @@ static void draw_sprite(int32_t tile, int32_t status, int32_t px, int32_t py)
 
 	int i = m[ST] + (tile * w * h);
 	for(int y = y0; y != y1; y+=yd)
-		for(int x = x0; x != x1; x+=xd) {
+		for(int x = x0; x != x1; x+=xd)
 			draw_pixel(x + px, y + py, m[i++]);
-			PREFETCH(&m[i]);
-		}
 }
 
 static void draw_grid(int zbit)
