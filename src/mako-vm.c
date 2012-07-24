@@ -32,7 +32,7 @@ static int32_t *m;
 
 uint32_t framebuf[240][320];
 
-static void draw();
+static void draw(int32_t *m);
 
 static void push(int32_t v)
 {
@@ -101,7 +101,7 @@ static void draw_pixel(uint32_t x, uint32_t y, uint32_t col)
 	framebuf[y][x] = col;
 }
 
-static void draw_tile(int32_t tile, int32_t px, int32_t py)
+static void draw_tile(int32_t *m, int32_t tile, int32_t px, int32_t py)
 {
 	if(tile < 0) return;
 	tile &= ~GRID_Z_MASK;
@@ -113,7 +113,7 @@ static void draw_tile(int32_t tile, int32_t px, int32_t py)
 			draw_pixel(x, y, m[i++]);
 }
 
-static void draw_sprite(int32_t tile, int32_t status, int32_t px, int32_t py)
+static void draw_sprite(int32_t *m, int32_t tile, int32_t status, int32_t px, int32_t py)
 {
 	if (status % 2 == 0) return;
 	int w = (((status & 0x0F00) >> 8) + 1) * 8;
@@ -143,7 +143,7 @@ static void draw_sprite(int32_t tile, int32_t status, int32_t px, int32_t py)
 			draw_pixel(x + px, y + py, m[i++]);
 }
 
-static void draw_grid(int zbit)
+static void draw_grid(int32_t *m, int zbit)
 {
 	int i = m[GP];
 	for(int y = 0; y < 31; y++) {
@@ -156,29 +156,29 @@ static void draw_grid(int zbit)
 				i++;
 				continue;
 			}
-			draw_tile(m[i++], x*8 - m[SX], y*8 - m[SY]);
+			draw_tile(m, m[i++], x*8 - m[SX], y*8 - m[SY]);
 		}
 		i += m[GS];
 	}
 }
 
-static void draw()
+static void draw(int32_t *m)
 {
 	for(int y = 0; y < 240; y++)
 		for(int x = 0; x < 320; x++)
 			framebuf[y][x] = m[CL];
 
-	draw_grid(0);
+	draw_grid(m, 0);
 
 	for(int spr = 0; spr < 1024; spr+=4) {
 		int32_t status = m[m[SP] + spr];
 		int32_t tile = m[m[SP] + spr + 1];
 		int32_t px = m[m[SP] + spr + 2];
 		int32_t py = m[m[SP] + spr + 3];
-		draw_sprite(tile, status, px - m[SX], py - m[SY]);
+		draw_sprite(m, tile, status, px - m[SX], py - m[SY]);
 	}
 
-	draw_grid(1);
+	draw_grid(m, 1);
 }
 
 void run_vm() {
@@ -318,7 +318,7 @@ NEXT:
 	m[PC] = --m[m[RP]-1]<0 ? m[PC]+1 : m[m[PC]];
 	STEP;
 SYNC:
-	draw();
+	draw(m);
 	return;
 }
 
