@@ -99,7 +99,7 @@ void run_vm() {
 		finished(0);		\
 		return;			\
 	}				\
-	o = m[m[PC]++];			\
+	o = m[m[PC]];			\
 	switch(o) {			\
 	case OP_CONST: goto CONST;	\
 	case OP_CALL: goto CALL;	\
@@ -135,25 +135,28 @@ void run_vm() {
 	STEP;
 
 CONST:
+	m[PC]++;
 	push(m[m[PC]++]);
 	STEP;
 CALL:
-	rpush(m[PC]+1);
-	m[PC] = m[m[PC]];
+	rpush(m[PC]+2);
+	m[PC] = m[m[PC]+1];
 	STEP;
 JUMP:
-	m[PC] = m[m[PC]];
+	m[PC] = m[m[PC]+1];
 	STEP;
 JUMPZ:
-	m[PC] = pop()==0 ? m[m[PC]] : m[PC]+1;
+	m[PC] = pop()==0 ? m[m[PC]+1] : m[PC]+2;
 	STEP;
 JUMPIF:
-	m[PC] = pop()!=0 ? m[m[PC]] : m[PC]+1;
+	m[PC] = pop()!=0 ? m[m[PC]+1] : m[PC]+2;
 	STEP;
 LOAD:
+	m[PC]++;
 	m[m[DP]-1] = load(m[m[DP]-1]);
 	STEP;
 STOR:
+	m[PC]++;
 	m[DP]-=2;
 	stor(m[m[DP]+1], m[m[DP]]);
 	STEP;
@@ -161,72 +164,90 @@ RETURN:
 	m[PC] = m[--m[RP]];
 	STEP;
 DROP:
+	m[PC]++;
 	pop();
 	STEP;
 SWAP:
+	m[PC]++;
 	a = m[m[DP]-1];
 	m[m[DP]-1] = m[m[DP]-2];
 	m[m[DP]-2] = a;
 	STEP;
 DUP:
+	m[PC]++;
 	push(m[m[DP]-1]);
 	STEP;
 OVER:
+	m[PC]++;
 	push(m[m[DP]-2]);
 	STEP;
 STR:
+	m[PC]++;
 	rpush(pop());
 	STEP;
 RTS:
+	m[PC]++;
 	push(rpop());
 	STEP;
 ADD:
+	m[PC]++;
 	m[DP]--;
 	m[m[DP]-1] = m[m[DP]-1] + m[m[DP]];
 	STEP;
 SUB:
+	m[PC]++;
 	m[DP]--;
 	m[m[DP]-1] = m[m[DP]-1] - m[m[DP]];
 	STEP;
 MUL:
+	m[PC]++;
 	m[DP]--;
 	m[m[DP]-1] = m[m[DP]-1] * m[m[DP]];
 	STEP;
 DIV:
+	m[PC]++;
 	m[DP]--;
 	m[m[DP]-1] = m[m[DP]-1] / m[m[DP]];
 	STEP;
 MOD:
+	m[PC]++;
 	m[DP]--;
 	m[m[DP]-1] = mod(m[m[DP]-1], m[m[DP]]);
 	STEP;
 AND:
+	m[PC]++;
 	m[DP]--;
 	m[m[DP]-1] = m[m[DP]-1] & m[m[DP]];
 	STEP;
 OR:
+	m[PC]++;
 	m[DP]--;
 	m[m[DP]-1] = m[m[DP]-1] | m[m[DP]];
 	STEP;
 XOR:
+	m[PC]++;
 	m[DP]--;
 	m[m[DP]-1] = m[m[DP]-1] ^ m[m[DP]];
 	STEP;
 NOT:
+	m[PC]++;
 	m[m[DP]-1] = ~m[m[DP]-1];
 	STEP;
 SGT:
+	m[PC]++;
 	m[DP]--;
 	m[m[DP]-1] = m[m[DP]-1]>m[m[DP]] ? -1 : 0;
 	STEP;
 SLT:
+	m[PC]++;
 	m[DP]--;
 	m[m[DP]-1] = m[m[DP]-1]<m[m[DP]] ? -1 : 0;
 	STEP;
 NEXT:
-	m[PC] = --m[m[RP]-1]<0 ? m[PC]+1 : m[m[PC]];
+	m[PC] = --m[m[RP]-1]<0 ? m[PC]+2 : m[m[PC]+1];
 	STEP;
 SYNC:
+	m[PC]++;
 	draw(m);
 	return;
 }
