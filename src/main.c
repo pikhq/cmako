@@ -45,6 +45,10 @@ static int sound_playing;
 static uint8_t snd_buf[1024];
 static int snd_buf_r = 1, snd_buf_w = 0;
 
+static int inited_sdl = 0;
+
+static void init_sdl(void);
+
 int32_t read_gamepad(void)
 {
 	return buttons;
@@ -76,6 +80,9 @@ void write_sound(uint8_t sample)
 {
 	if(sound_playing == -1)
 		return;
+
+	if(!inited_sdl)
+		init_sdl();
 
 	if(!sound_playing) {
 		sound_playing = 1;
@@ -166,6 +173,8 @@ static void init_sdl()
 	}
 
 	frame_start = SDL_GetTicks();
+
+	inited_sdl = 1;
 }
 
 static void button_change(int up, SDLKey keysym)
@@ -248,6 +257,9 @@ static void render_screen()
 {
 	static int screen_inited;
 
+	if(!inited_sdl)
+		init_sdl();
+
 	if(!screen_inited) {
 		const SDL_VideoInfo *info = SDL_GetVideoInfo();
 
@@ -321,8 +333,6 @@ int main(int argc, char **argv)
 	}
 
 	init_vm(mem);
-
-	init_sdl();
 
 	while(1) {
 		run_vm();
