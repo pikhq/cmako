@@ -21,6 +21,8 @@
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#include <stdio.h>
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <time.h>
@@ -30,49 +32,18 @@
 #include "ui.h"
 
 static int32_t *m;
+static void **code;
+static size_t s;
 
-static void push(int32_t v)
-{
-	m[m[DP]++] = v;
-}
-
-static void rpush(int32_t v)
-{
-	m[m[RP]++] = v;
-}
-
-static int32_t pop()
-{
-	return m[--m[DP]];
-}
-
-static int32_t rpop()
-{
-	return m[--m[RP]];
-}
+#define push(v) { *dp++ = v; }
+#define rpush(v) { *rp++ = v; }
+#define pop() *--dp
+#define rpop() *--rp
 
 static int32_t mod(int32_t a, int32_t b)
 {
 	a %= b;
 	return a < 0 ? a+b : a;
-}
-
-static int32_t load(int32_t addr)
-{
-	switch(addr) {
-	case CO:
-		return read_console();
-	case KY:
-		return read_gamepad();
-	case KB:
-		return read_key();
-	case RN:
-		return m[RN] = rand();
-	case DP:
-		return m[addr]-1;
-	default:
-		return m[addr];
-	}
 }
 
 static void stor(int32_t addr, int32_t val)
@@ -93,7 +64,24 @@ static void stor(int32_t addr, int32_t val)
 void run_vm() {
 	int32_t o;
 	int32_t a;
+	int32_t *dp = m+m[DP];
+	int32_t *rp = m+m[RP];
 
+	if(!code) {
+		code = (void**)malloc((s + 2) * sizeof(void*)) + 1;
+		if(!code) {
+			finished(1);
+			return;
+		}
+		for(size_t i = 0; i < s; i++) {
+			code[i] = &&LOOKUP;
+		}
+		code[-1] = &&EXIT;
+		code[s] = &&LOOKUP;
+	}
+
+	void **pc = code+m[PC];
+#if 0
 #define STEP				\
 	if(m[PC] == -1) {		\
 		finished(0);		\
@@ -131,129 +119,211 @@ void run_vm() {
 	default: finished(1);		\
 		 return;		\
 	}
-
+#else
+	static void *jmp[] = {
+		[OP_CONST] = &&CONST, [OP_CALL] = &&CALL,
+		[OP_JUMP] = &&JUMP, [OP_JUMPZ] = &&JUMPZ,
+		[OP_JUMPIF] = &&JUMPIF, [OP_LOAD] = &&LOAD,
+		[OP_STOR] = &&STOR, [OP_RETURN] = &&RETURN,
+		[OP_DROP] = &&DROP, [OP_SWAP] = &&SWAP,
+		[OP_DUP] = &&DUP, [OP_OVER] = &&OVER,
+		[OP_STR] = &&STR, [OP_RTS] = &&RTS,
+		[OP_ADD] = &&ADD, [OP_SUB] = &&SUB,
+		[OP_MUL] = &&MUL, [OP_DIV] = &&DIV,
+		[OP_MOD] = &&MOD, [OP_AND] = &&AND,
+		[OP_OR] = &&OR, [OP_XOR] = &&XOR,
+		[OP_NOT] = &&NOT, [OP_SGT] = &&SGT,
+		[OP_SLT] = &&SLT, [OP_NEXT] = &&NEXT,
+		[OP_SYNC] = &&SYNC
+	};
+#define STEP goto **pc;
+#endif
 	STEP;
 
 CONST:
-	m[PC]++;
-	push(m[m[PC]++]);
+	a = ((uintptr_t)pc-(uintptr_t)code)/sizeof(void*);
+	push(m[a+1]);
+	pc+=2;
 	STEP;
 CALL:
-	rpush(m[PC]+2);
-	m[PC] = m[m[PC]+1];
+	a = ((uintptr_t)pc-(uintptr_t)code)/sizeof(void*);
+	rpush(a + 2);
+	pc = code + m[a+1];
 	STEP;
 JUMP:
-	m[PC] = m[m[PC]+1];
+	a = ((uintptr_t)pc-(uintptr_t)code)/sizeof(void*);
+	pc = code + m[a+1];
 	STEP;
 JUMPZ:
-	m[PC] = pop()==0 ? m[m[PC]+1] : m[PC]+2;
+	a = ((uintptr_t)pc-(uintptr_t)code)/sizeof(void*);
+	pc = pop()==0 ? code + m[a + 1] : pc+2;
 	STEP;
 JUMPIF:
-	m[PC] = pop()!=0 ? m[m[PC]+1] : m[PC]+2;
+	a = ((uintptr_t)pc-(uintptr_t)code)/sizeof(void*);
+	pc = pop()!=0 ? code + m[a + 1] : pc+2;
 	STEP;
 LOAD:
-	m[PC]++;
-	m[m[DP]-1] = load(m[m[DP]-1]);
-	STEP;
+	pc++;
+	switch(dp[-1]) {
+	case CO:
+		dp[-1] = read_console(); STEP;
+	case KY:
+		dp[-1] = read_gamepad(); STEP;
+	case KB:
+		dp[-1] = read_key(); STEP;
+	case RN:
+		dp[-1] = rand(); m[RN] = dp[-1]; STEP;
+	case PC:
+		dp[-1] = ((uintptr_t)pc-(uintptr_t)code)/sizeof(void*);
+		STEP;
+	case DP:
+		dp[-1] = ((uintptr_t)dp-(uintptr_t)m)/sizeof(int32_t) - 1;
+		STEP;
+	case RP:
+		dp[-1] = ((uintptr_t)rp-(uintptr_t)m)/sizeof(int32_t);
+		STEP;
+	default:
+		dp[-1] = m[dp[-1]];
+		STEP;
+	}
 STOR:
-	m[PC]++;
-	m[DP]-=2;
-	stor(m[m[DP]+1], m[m[DP]]);
-	STEP;
+	pc++;
+	dp-=2;
+	code[dp[1]] = &&LOOKUP;
+	switch(dp[1]) {
+	case CO:
+		write_console(*dp); STEP;
+	case AU:
+		write_sound(*dp); STEP;
+	case PC:
+		pc = code + *dp;
+		STEP;
+	case DP:
+		dp = m + *dp;
+		STEP;
+	case RP:
+		rp = m + *rp;
+		STEP;
+	default:
+		m[dp[1]] = *dp;
+		STEP;
+	}
 RETURN:
-	m[PC] = m[--m[RP]];
+	pc = code + *--rp;
 	STEP;
 DROP:
-	m[PC]++;
+	pc++;
 	pop();
 	STEP;
 SWAP:
-	m[PC]++;
-	a = m[m[DP]-1];
-	m[m[DP]-1] = m[m[DP]-2];
-	m[m[DP]-2] = a;
+	pc++;
+	a = dp[-1];
+	dp[-1] = dp[-2];
+	dp[-2] = a;
 	STEP;
 DUP:
-	m[PC]++;
-	push(m[m[DP]-1]);
+	pc++;
+	push(dp[-1]);
 	STEP;
 OVER:
-	m[PC]++;
-	push(m[m[DP]-2]);
+	pc++;
+	push(dp[-2]);
 	STEP;
 STR:
-	m[PC]++;
+	pc++;
 	rpush(pop());
 	STEP;
 RTS:
-	m[PC]++;
+	pc++;
 	push(rpop());
 	STEP;
 ADD:
-	m[PC]++;
-	m[DP]--;
-	m[m[DP]-1] = m[m[DP]-1] + m[m[DP]];
+	pc++;
+	dp--;
+	dp[-1] = dp[-1] + *dp;
 	STEP;
 SUB:
-	m[PC]++;
-	m[DP]--;
-	m[m[DP]-1] = m[m[DP]-1] - m[m[DP]];
+	pc++;
+	dp--;
+	dp[-1] = dp[-1] - *dp;
 	STEP;
 MUL:
-	m[PC]++;
-	m[DP]--;
-	m[m[DP]-1] = m[m[DP]-1] * m[m[DP]];
+	pc++;
+	dp--;
+	dp[-1] = dp[-1] * *dp;
 	STEP;
 DIV:
-	m[PC]++;
-	m[DP]--;
-	m[m[DP]-1] = m[m[DP]-1] / m[m[DP]];
+	pc++;
+	dp--;
+	dp[-1] = dp[-1] / *dp;
 	STEP;
 MOD:
-	m[PC]++;
-	m[DP]--;
-	m[m[DP]-1] = mod(m[m[DP]-1], m[m[DP]]);
+	pc++;
+	dp--;
+	dp[-1] = mod(dp[-1], *dp);
 	STEP;
 AND:
-	m[PC]++;
-	m[DP]--;
-	m[m[DP]-1] = m[m[DP]-1] & m[m[DP]];
+	pc++;
+	dp--;
+	dp[-1] = dp[-1] & *dp;
 	STEP;
 OR:
-	m[PC]++;
-	m[DP]--;
-	m[m[DP]-1] = m[m[DP]-1] | m[m[DP]];
+	pc++;
+	dp--;
+	dp[-1] = dp[-1] | *dp;
 	STEP;
 XOR:
-	m[PC]++;
-	m[DP]--;
-	m[m[DP]-1] = m[m[DP]-1] ^ m[m[DP]];
+	pc++;
+	dp--;
+	dp[-1] = dp[-1] ^ *dp;
 	STEP;
 NOT:
-	m[PC]++;
-	m[m[DP]-1] = ~m[m[DP]-1];
+	pc++;
+	dp[-1] = ~dp[-1];
 	STEP;
 SGT:
-	m[PC]++;
-	m[DP]--;
-	m[m[DP]-1] = m[m[DP]-1]>m[m[DP]] ? -1 : 0;
+	pc++;
+	dp--;
+	dp[-1] = dp[-1]>*dp ? -1 : 0;
 	STEP;
 SLT:
-	m[PC]++;
-	m[DP]--;
-	m[m[DP]-1] = m[m[DP]-1]<m[m[DP]] ? -1 : 0;
+	pc++;
+	dp--;
+	dp[-1] = dp[-1]<*dp ? -1 : 0;
 	STEP;
 NEXT:
-	m[PC] = --m[m[RP]-1]<0 ? m[PC]+2 : m[m[PC]+1];
+	a = ((uintptr_t)pc - (uintptr_t)code)/sizeof(void*);
+	pc = --rp[-1]<0 ? pc + 2 : code + m[a + 1];
 	STEP;
+LOOKUP:
+	a = ((uintptr_t)pc-(uintptr_t)code)/sizeof(void*);
+	if(m[a] <= OP_NEXT && jmp[m[a]])
+		*pc = jmp[m[a]];
+	else {
+		*pc = &&HCF;
+	}
+	STEP;
+EXIT:
+	finished(0);
+	return;
+HCF:
+	finished(1);
+	return;
 SYNC:
-	m[PC]++;
+	m[PC] = ((uintptr_t)pc - (uintptr_t)code)/sizeof(void*)+1;
+	m[DP] = ((uintptr_t)dp - (uintptr_t)m)/sizeof(int32_t);
+	m[RP] = ((uintptr_t)rp - (uintptr_t)m)/sizeof(int32_t);
 	draw(m);
 	return;
 }
 
-void init_vm(int32_t *mem)
+void init_vm(int32_t *mem, size_t size)
 {
+	if(code) {
+		free(code-1);
+		code = NULL;
+	}
 	m = mem;
+	s = size;
 	srand(m[RN]);
 }

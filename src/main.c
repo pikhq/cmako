@@ -106,7 +106,7 @@ void finished(int code)
 	exit(code);
 }
 
-static int32_t *read_file(const char *file)
+static int32_t *read_file(const char *file, size_t *size)
 {
 	int pos = 0;
 
@@ -143,6 +143,9 @@ static int32_t *read_file(const char *file)
 		return NULL;
 
 	memset(mem + pos, 0, (alloc_size - pos) * sizeof *mem);
+
+	if(size)
+		*size = pos;
 
 	return mem;
 }
@@ -300,7 +303,7 @@ static void render_screen()
 		.h = desired_h
 	};
 
-	SDL_SoftStretch(mako_screen, NULL, real_screen, &rect);
+	SDL_BlitSurface(mako_screen, NULL, real_screen, &rect);
 
 	SDL_FreeSurface(mako_screen);
 
@@ -323,7 +326,8 @@ int main(int argc, char **argv)
 	}
 
 	errno = 0;
-	int32_t *mem = read_file(argv[1]);
+	size_t size;
+	int32_t *mem = read_file(argv[1], &size);
 	if(!mem) {
 		if(errno)
 			perror(argv[0]);
@@ -332,7 +336,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	init_vm(mem);
+	init_vm(mem, size);
 
 	while(1) {
 		run_vm();
