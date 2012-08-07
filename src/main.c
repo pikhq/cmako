@@ -30,11 +30,12 @@
 
 #include "SDL.h"
 
+#include "SDL_framerate.h"
+
 #include "ui.h"
 #include "mako-vm.h"
 #include "constants.h"
 
-static uint32_t frame_start;
 static uint32_t buttons;
 
 static uint32_t key_buf[1024];
@@ -46,6 +47,8 @@ static uint8_t snd_buf[1024];
 static int snd_buf_r = 1, snd_buf_w = 0;
 
 static int inited_sdl = 0;
+
+static FPSmanager fps;
 
 static void init_sdl(void);
 
@@ -164,7 +167,7 @@ static void init_sdl()
 	SDL_putenv("SDL_NOMOUSE=1");
 	SDL_putenv("SDL_VIDEO_CENTERED=1");
 
-	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO | SDL_INIT_NOPARACHUTE);
+	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_NOPARACHUTE);
 	signal(SIGINT, SIG_DFL);
 	SDL_EnableUNICODE(1);
 	SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
@@ -175,7 +178,8 @@ static void init_sdl()
 		sound_playing = -1;
 	}
 
-	frame_start = SDL_GetTicks();
+	SDL_initFramerate(&fps);
+	SDL_setFramerate(&fps, 60);
 
 	inited_sdl = 1;
 }
@@ -316,10 +320,7 @@ static void render_screen()
 
 static void delay()
 {
-	uint32_t total = SDL_GetTicks() - frame_start;
-	if(total < 1000/60)
-		SDL_Delay(1000/60 - total);
-	frame_start = SDL_GetTicks();
+	SDL_framerateDelay(&fps);
 }
 
 int main(int argc, char **argv)
