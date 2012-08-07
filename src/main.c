@@ -293,14 +293,14 @@ static void render_screen()
 		screen_inited = 1;
 	}
 
-	int desired_h = real_screen->w * 3 / 4;
-	if(desired_h > real_screen->h)
-		desired_h = real_screen->h;
-	int desired_w = desired_h * 4 / 3;
-
-	if(desired_h == 240 && desired_w == 320)
+	if(real_screen->h == 240 && real_screen->w == 320)
 		SDL_BlitSurface(mako_screen, NULL, real_screen, NULL);
 	else {
+		int desired_h = real_screen->w * 3 / 4;
+		if(desired_h > real_screen->h)
+			desired_h = real_screen->h;
+		int desired_w = desired_h * 4 / 3;
+
 		SDL_Rect rect = {
 			.x = (real_screen->w - desired_w)/2,
 			.y = (real_screen->h - desired_h)/2,
