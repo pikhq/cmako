@@ -260,6 +260,9 @@ static void render_screen()
 {
 	static int screen_inited;
 
+	static SDL_Surface *real_screen;
+	static SDL_Surface *mako_screen;
+
 	if(!inited_sdl)
 		init_sdl();
 
@@ -282,30 +285,31 @@ static void render_screen()
 			}
 			SDL_ShowCursor(SDL_DISABLE);
 		}
+
+		real_screen = SDL_GetVideoSurface();
+		mako_screen = SDL_CreateRGBSurfaceFrom(framebuf, 320, 240, 32,
+				320*sizeof(uint32_t), 0xFF0000, 0xFF00, 0xFF, 0);
+
 		screen_inited = 1;
 	}
-
-
-	SDL_Surface *mako_screen = SDL_CreateRGBSurfaceFrom(framebuf, 320, 240, 32,
-			320*sizeof(uint32_t), 0xFF0000, 0xFF00, 0xFF, 0);
-
-	SDL_Surface *real_screen = SDL_GetVideoSurface();
 
 	int desired_h = real_screen->w * 3 / 4;
 	if(desired_h > real_screen->h)
 		desired_h = real_screen->h;
 	int desired_w = desired_h * 4 / 3;
 
-	SDL_Rect rect = {
-		.x = (real_screen->w - desired_w)/2,
-		.y = (real_screen->h - desired_h)/2,
-		.w = desired_w,
-		.h = desired_h
-	};
+	if(desired_h == 240 && desired_w == 320)
+		SDL_BlitSurface(mako_screen, NULL, real_screen, NULL);
+	else {
+		SDL_Rect rect = {
+			.x = (real_screen->w - desired_w)/2,
+			.y = (real_screen->h - desired_h)/2,
+			.w = desired_w,
+			.h = desired_h
+		};
 
-	SDL_BlitSurface(mako_screen, NULL, real_screen, &rect);
-
-	SDL_FreeSurface(mako_screen);
+		SDL_SoftStretch(mako_screen, NULL, real_screen, &rect);
+	}
 
 	SDL_Flip(real_screen);
 }
