@@ -222,7 +222,7 @@ STOR:
 		dp = m + *dp;
 		STEP;
 	case RP:
-		rp = m + *rp;
+		rp = m + *dp;
 		STEP;
 	default:
 		m[dp[1]] = *dp;
