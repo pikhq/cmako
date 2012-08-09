@@ -31,8 +31,14 @@
 #include "draw.h"
 #include "ui.h"
 
+#if HAVE_COMPUTED_GOTO
+typedef void *instr;
+#else
+typedef int32_t instr;
+#endif
+
 static int32_t *m;
-static void **code;
+static instr *code;
 static size_t s;
 
 #define push(v) { *dp++ = v; }
@@ -62,33 +68,49 @@ static void stor(int32_t addr, int32_t val)
 
 
 void run_vm() {
-	int32_t o;
 	int32_t a;
 	int32_t *dp = m+m[DP];
 	int32_t *rp = m+m[RP];
 
-	if(!code) {
-		code = (void**)malloc((s + 2) * sizeof(void*)) + 1;
-		if(!code) {
-			finished(1);
-			return;
-		}
-		for(size_t i = 0; i < s; i++) {
-			code[i] = &&LOOKUP;
-		}
-		code[-1] = &&EXIT;
-		code[s] = &&LOOKUP;
-	}
-
-	void **pc = code+m[PC];
-#if 0
+#if HAVE_COMPUTED_GOTO
+	static const instr jmp[] = {
+		[OP_CONST] = &&CONST, [OP_CALL] = &&CALL,
+		[OP_JUMP] = &&JUMP, [OP_JUMPZ] = &&JUMPZ,
+		[OP_JUMPIF] = &&JUMPIF, [OP_LOAD] = &&LOAD,
+		[OP_STOR] = &&STOR, [OP_RETURN] = &&RETURN,
+		[OP_DROP] = &&DROP, [OP_SWAP] = &&SWAP,
+		[OP_DUP] = &&DUP, [OP_OVER] = &&OVER,
+		[OP_STR] = &&STR, [OP_RTS] = &&RTS,
+		[OP_ADD] = &&ADD, [OP_SUB] = &&SUB,
+		[OP_MUL] = &&MUL, [OP_DIV] = &&DIV,
+		[OP_MOD] = &&MOD, [OP_AND] = &&AND,
+		[OP_OR] = &&OR, [OP_XOR] = &&XOR,
+		[OP_NOT] = &&NOT, [OP_SGT] = &&SGT,
+		[OP_SLT] = &&SLT, [OP_NEXT] = &&NEXT,
+		[OP_SYNC] = &&SYNC, [OP_LOOKUP] = &&LOOKUP,
+		[OP_EXIT] = &&EXIT, [OP_HCF] = &&HCF
+	};
+#define STEP goto **pc;
+#else
+	static const instr jmp[] = {
+		[OP_CONST] = OP_CONST, [OP_CALL] = OP_CALL,
+		[OP_JUMP] = OP_JUMP, [OP_JUMPZ] = OP_JUMPZ,
+		[OP_JUMPIF] = OP_JUMPIF, [OP_LOAD] = OP_LOAD,
+		[OP_STOR] = OP_STOR, [OP_RETURN] = OP_RETURN,
+		[OP_DROP] = OP_DROP, [OP_SWAP] = OP_SWAP,
+		[OP_DUP] = OP_DUP, [OP_OVER] = OP_OVER,
+		[OP_STR] = OP_STR, [OP_RTS] = OP_RTS,
+		[OP_ADD] = OP_ADD, [OP_SUB] = OP_SUB,
+		[OP_MUL] = OP_MUL, [OP_DIV] = OP_DIV,
+		[OP_MOD] = OP_MOD, [OP_AND] = OP_AND,
+		[OP_OR] = OP_OR, [OP_XOR] = OP_XOR,
+		[OP_NOT] = OP_NOT, [OP_SGT] = OP_SGT,
+		[OP_SLT] = OP_SLT, [OP_NEXT] = OP_NEXT,
+		[OP_SYNC] = OP_SYNC, [OP_LOOKUP] = OP_LOOKUP,
+		[OP_EXIT] = OP_EXIT, [OP_HCF] = OP_HCF
+	};
 #define STEP				\
-	if(m[PC] == -1) {		\
-		finished(0);		\
-		return;			\
-	}				\
-	o = m[m[PC]];			\
-	switch(o) {			\
+	switch(*pc) {			\
 	case OP_CONST: goto CONST;	\
 	case OP_CALL: goto CALL;	\
 	case OP_JUMP: goto JUMP;	\
@@ -116,50 +138,48 @@ void run_vm() {
 	case OP_SLT: goto SLT;		\
 	case OP_NEXT: goto NEXT;	\
 	case OP_SYNC: goto SYNC;	\
-	default: finished(1);		\
-		 return;		\
+	case OP_LOOKUP: goto LOOKUP;	\
+	case OP_EXIT: goto EXIT;	\
+	case OP_HCF: goto HCF;		\
 	}
-#else
-	static void *jmp[] = {
-		[OP_CONST] = &&CONST, [OP_CALL] = &&CALL,
-		[OP_JUMP] = &&JUMP, [OP_JUMPZ] = &&JUMPZ,
-		[OP_JUMPIF] = &&JUMPIF, [OP_LOAD] = &&LOAD,
-		[OP_STOR] = &&STOR, [OP_RETURN] = &&RETURN,
-		[OP_DROP] = &&DROP, [OP_SWAP] = &&SWAP,
-		[OP_DUP] = &&DUP, [OP_OVER] = &&OVER,
-		[OP_STR] = &&STR, [OP_RTS] = &&RTS,
-		[OP_ADD] = &&ADD, [OP_SUB] = &&SUB,
-		[OP_MUL] = &&MUL, [OP_DIV] = &&DIV,
-		[OP_MOD] = &&MOD, [OP_AND] = &&AND,
-		[OP_OR] = &&OR, [OP_XOR] = &&XOR,
-		[OP_NOT] = &&NOT, [OP_SGT] = &&SGT,
-		[OP_SLT] = &&SLT, [OP_NEXT] = &&NEXT,
-		[OP_SYNC] = &&SYNC
-	};
-#define STEP goto **pc;
 #endif
+
+	if(!code) {
+		code = (instr*)malloc((s + 2) * sizeof(instr)) + 1;
+		if(!code) {
+			finished(1);
+			return;
+		}
+		for(size_t i = 0; i < s; i++) {
+			code[i] = jmp[OP_LOOKUP];
+		}
+		code[-1] = jmp[OP_EXIT];
+		code[s] = jmp[OP_LOOKUP];
+	}
+
+	instr *pc = code+m[PC];
 	STEP;
 
 CONST:
-	a = ((uintptr_t)pc-(uintptr_t)code)/sizeof(void*);
+	a = ((uintptr_t)pc-(uintptr_t)code)/sizeof(instr);
 	push(m[a+1]);
 	pc+=2;
 	STEP;
 CALL:
-	a = ((uintptr_t)pc-(uintptr_t)code)/sizeof(void*);
+	a = ((uintptr_t)pc-(uintptr_t)code)/sizeof(instr);
 	rpush(a + 2);
 	pc = code + m[a+1];
 	STEP;
 JUMP:
-	a = ((uintptr_t)pc-(uintptr_t)code)/sizeof(void*);
+	a = ((uintptr_t)pc-(uintptr_t)code)/sizeof(instr);
 	pc = code + m[a+1];
 	STEP;
 JUMPZ:
-	a = ((uintptr_t)pc-(uintptr_t)code)/sizeof(void*);
+	a = ((uintptr_t)pc-(uintptr_t)code)/sizeof(instr);
 	pc = pop()==0 ? code + m[a + 1] : pc+2;
 	STEP;
 JUMPIF:
-	a = ((uintptr_t)pc-(uintptr_t)code)/sizeof(void*);
+	a = ((uintptr_t)pc-(uintptr_t)code)/sizeof(instr);
 	pc = pop()!=0 ? code + m[a + 1] : pc+2;
 	STEP;
 LOAD:
@@ -174,7 +194,7 @@ LOAD:
 	case RN:
 		dp[-1] = rand(); m[RN] = dp[-1]; STEP;
 	case PC:
-		dp[-1] = ((uintptr_t)pc-(uintptr_t)code)/sizeof(void*);
+		dp[-1] = ((uintptr_t)pc-(uintptr_t)code)/sizeof(instr);
 		STEP;
 	case DP:
 		dp[-1] = ((uintptr_t)dp-(uintptr_t)m)/sizeof(int32_t) - 1;
@@ -189,7 +209,7 @@ LOAD:
 STOR:
 	pc++;
 	dp-=2;
-	code[dp[1]] = &&LOOKUP;
+	code[dp[1]] = jmp[OP_LOOKUP];
 	switch(dp[1]) {
 	case CO:
 		write_console(*dp); STEP;
@@ -292,15 +312,15 @@ SLT:
 	dp[-1] = dp[-1]<*dp ? -1 : 0;
 	STEP;
 NEXT:
-	a = ((uintptr_t)pc - (uintptr_t)code)/sizeof(void*);
+	a = ((uintptr_t)pc - (uintptr_t)code)/sizeof(instr);
 	pc = --rp[-1]<0 ? pc + 2 : code + m[a + 1];
 	STEP;
 LOOKUP:
-	a = ((uintptr_t)pc-(uintptr_t)code)/sizeof(void*);
-	if(m[a] <= OP_NEXT && jmp[m[a]])
+	a = ((uintptr_t)pc-(uintptr_t)code)/sizeof(instr);
+	if(m[a] <= OP_NEXT)
 		*pc = jmp[m[a]];
 	else {
-		*pc = &&HCF;
+		*pc = jmp[OP_HCF];
 	}
 	STEP;
 EXIT:
@@ -310,7 +330,7 @@ HCF:
 	finished(1);
 	return;
 SYNC:
-	m[PC] = ((uintptr_t)pc - (uintptr_t)code)/sizeof(void*)+1;
+	m[PC] = ((uintptr_t)pc - (uintptr_t)code)/sizeof(instr)+1;
 	m[DP] = ((uintptr_t)dp - (uintptr_t)m)/sizeof(int32_t);
 	m[RP] = ((uintptr_t)rp - (uintptr_t)m)/sizeof(int32_t);
 	draw(m);

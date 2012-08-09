@@ -31,6 +31,10 @@
 #define OP_SYNC		30
 #define OP_NEXT		31
 
+#define OP_LOOKUP	32
+#define OP_EXIT		33
+#define OP_HCF		34
+
 #define PC		0
 #define DP		1
 #define RP		2

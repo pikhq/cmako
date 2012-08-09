@@ -31,5 +31,15 @@ PKG_CHECK_MODULES([SDL_GFX], [SDL_gfx])
 
 AM_PATH_SDL()
 
+AC_MSG_CHECKING([if we have computed goto])
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([
+			int main() {void *foo = &&FOO; FOO: goto *foo;}])],
+		[
+			AC_DEFINE([HAVE_COMPUTED_GOTO], [1])
+			AC_MSG_RESULT([yes])
+		], [
+			AC_MSG_RESULT([no])
+		])
+
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
