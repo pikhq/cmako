@@ -54,21 +54,6 @@ static int32_t mod(int32_t a, int32_t b)
 	return a < 0 ? a+b : a;
 }
 
-static void stor(int32_t addr, int32_t val)
-{
-	switch(addr) {
-	case CO:
-		write_console(val);
-		break;
-	case AU:
-		write_sound(val);
-		break;
-	default:
-		m[addr] = val;
-	}
-}
-
-
 void run_vm() {
 	int32_t a, b;
 	int32_t *dp = m+m[DP];
