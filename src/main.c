@@ -105,7 +105,6 @@ void write_sound(uint8_t sample)
 
 void finished(int code)
 {
-	SDL_Quit();
 	exit(code);
 }
 
@@ -168,6 +167,7 @@ static void init_sdl()
 	SDL_putenv("SDL_VIDEO_CENTERED=1");
 
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_NOPARACHUTE);
+	atexit(SDL_Quit);
 	signal(SIGINT, SIG_DFL);
 	SDL_EnableUNICODE(1);
 	SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
@@ -248,7 +248,6 @@ static void process_events()
 			if(!SDL_SetVideoMode(event.resize.w, event.resize.h, 0,
 					SDL_HWSURFACE | SDL_ANYFORMAT | SDL_DOUBLEBUF | SDL_RESIZABLE)) {
 				fprintf(stderr, "%s.\n", SDL_GetError());
-				SDL_Quit();
 				exit(1);
 			}
 			break;
@@ -277,14 +276,12 @@ static void render_screen()
 			if(!SDL_SetVideoMode(320, 240, 0,
 						SDL_HWSURFACE | SDL_ANYFORMAT | SDL_DOUBLEBUF | SDL_RESIZABLE)) {
 				fprintf(stderr, "%s.\n", SDL_GetError());
-				SDL_Quit();
 				exit(1);
 			}
 		} else {
 			if(!SDL_SetVideoMode(info->current_w, info->current_h, 0,
 						SDL_HWSURFACE | SDL_ANYFORMAT | SDL_DOUBLEBUF | SDL_RESIZABLE)) {
 				fprintf(stderr, "%s.\n", SDL_GetError());
-				SDL_Quit();
 				exit(1);
 			}
 			SDL_ShowCursor(SDL_DISABLE);
