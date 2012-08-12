@@ -43,6 +43,8 @@ static size_t s;
 
 #define push(v) { *dp++ = v; }
 #define rpush(v) { *rp++ = v; }
+#define top() dp[-1]
+#define rtop() rp[-1]
 #define pop() *--dp
 #define rpop() *--rp
 
@@ -68,7 +70,7 @@ static void stor(int32_t addr, int32_t val)
 
 
 void run_vm() {
-	int32_t a;
+	int32_t a, b;
 	int32_t *dp = m+m[DP];
 	int32_t *rp = m+m[RP];
 
@@ -184,52 +186,52 @@ JUMPIF:
 	STEP;
 LOAD:
 	pc++;
-	switch(dp[-1]) {
+	switch(top()) {
 	case CO:
-		dp[-1] = read_console(); STEP;
+		top() = read_console(); STEP;
 	case KY:
-		dp[-1] = read_gamepad(); STEP;
+		top() = read_gamepad(); STEP;
 	case KB:
-		dp[-1] = read_key(); STEP;
+		top() = read_key(); STEP;
 	case RN:
-		dp[-1] = rand(); m[RN] = dp[-1]; STEP;
+		top() = rand(); m[RN] = top(); STEP;
 	case PC:
-		dp[-1] = ((uintptr_t)pc-(uintptr_t)code)/sizeof(instr);
+		top() = ((uintptr_t)pc-(uintptr_t)code)/sizeof(instr);
 		STEP;
 	case DP:
-		dp[-1] = ((uintptr_t)dp-(uintptr_t)m)/sizeof(int32_t) - 1;
+		top() = ((uintptr_t)dp-(uintptr_t)m)/sizeof(int32_t) - 1;
 		STEP;
 	case RP:
-		dp[-1] = ((uintptr_t)rp-(uintptr_t)m)/sizeof(int32_t);
+		top() = ((uintptr_t)rp-(uintptr_t)m)/sizeof(int32_t);
 		STEP;
 	default:
-		dp[-1] = m[dp[-1]];
+		top() = m[top()];
 		STEP;
 	}
 STOR:
+	a = pop(); b = pop();
 	pc++;
-	dp-=2;
-	code[dp[1]] = jmp[OP_LOOKUP];
-	switch(dp[1]) {
+	code[a] = jmp[OP_LOOKUP];
+	switch(a) {
 	case CO:
-		write_console(*dp); STEP;
+		write_console(b); STEP;
 	case AU:
-		write_sound(*dp); STEP;
+		write_sound(b); STEP;
 	case PC:
-		pc = code + *dp;
+		pc = code + b;
 		STEP;
 	case DP:
-		dp = m + *dp;
+		dp = m + b;
 		STEP;
 	case RP:
-		rp = m + *dp;
+		rp = m + b;
 		STEP;
 	default:
-		m[dp[1]] = *dp;
+		m[a] = b;
 		STEP;
 	}
 RETURN:
-	pc = code + *--rp;
+	pc = code + rpop();
 	STEP;
 DROP:
 	pc++;
@@ -237,13 +239,12 @@ DROP:
 	STEP;
 SWAP:
 	pc++;
-	a = dp[-1];
-	dp[-1] = dp[-2];
-	dp[-2] = a;
+	a = pop(); b = pop();
+	push(a); push(b);
 	STEP;
 DUP:
 	pc++;
-	push(dp[-1]);
+	push(top());
 	STEP;
 OVER:
 	pc++;
@@ -259,57 +260,57 @@ RTS:
 	STEP;
 ADD:
 	pc++;
-	dp--;
-	dp[-1] = dp[-1] + *dp;
+	a=pop(); b=pop();
+	push(b+a);
 	STEP;
 SUB:
 	pc++;
-	dp--;
-	dp[-1] = dp[-1] - *dp;
+	a=pop(); b=pop();
+	push(b-a);
 	STEP;
 MUL:
 	pc++;
-	dp--;
-	dp[-1] = dp[-1] * *dp;
+	a=pop(); b=pop();
+	push(b*a);
 	STEP;
 DIV:
 	pc++;
-	dp--;
-	dp[-1] = dp[-1] / *dp;
+	a=pop(); b=pop();
+	push(b/a);
 	STEP;
 MOD:
 	pc++;
-	dp--;
-	dp[-1] = mod(dp[-1], *dp);
+	a=pop(); b=pop();
+	push(mod(b,a));
 	STEP;
 AND:
 	pc++;
-	dp--;
-	dp[-1] = dp[-1] & *dp;
+	a=pop(); b=pop();
+	push(b&a);
 	STEP;
 OR:
 	pc++;
-	dp--;
-	dp[-1] = dp[-1] | *dp;
+	a=pop(); b=pop();
+	push(b|a);
 	STEP;
 XOR:
 	pc++;
-	dp--;
-	dp[-1] = dp[-1] ^ *dp;
+	a=pop(); b=pop();
+	push(b^a);
 	STEP;
 NOT:
 	pc++;
-	dp[-1] = ~dp[-1];
+	top() = ~top();
 	STEP;
 SGT:
 	pc++;
-	dp--;
-	dp[-1] = dp[-1]>*dp ? -1 : 0;
+	a=pop(); b=pop();
+	push(b>a ? -1 : 0);
 	STEP;
 SLT:
 	pc++;
-	dp--;
-	dp[-1] = dp[-1]<*dp ? -1 : 0;
+	a=pop(); b=pop();
+	push(b<a ? -1 : 0);
 	STEP;
 NEXT:
 	a = ((uintptr_t)pc - (uintptr_t)code)/sizeof(instr);
