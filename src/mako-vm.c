@@ -75,7 +75,9 @@ void run_vm() {
 		[OP_NOT] = &&NOT, [OP_SGT] = &&SGT,
 		[OP_SLT] = &&SLT, [OP_NEXT] = &&NEXT,
 		[OP_SYNC] = &&SYNC, [OP_LOOKUP] = &&LOOKUP,
-		[OP_EXIT] = &&EXIT, [OP_HCF] = &&HCF
+		[OP_EXIT] = &&EXIT, [OP_HCF] = &&HCF,
+		[5] = &&HCF, [6] = &&HCF, [7] = &&HCF,
+		[8] = &&HCF, [9] = &&HCF
 	};
 #define STEP goto **pc;
 #else
@@ -94,7 +96,9 @@ void run_vm() {
 		[OP_NOT] = OP_NOT, [OP_SGT] = OP_SGT,
 		[OP_SLT] = OP_SLT, [OP_NEXT] = OP_NEXT,
 		[OP_SYNC] = OP_SYNC, [OP_LOOKUP] = OP_LOOKUP,
-		[OP_EXIT] = OP_EXIT, [OP_HCF] = OP_HCF
+		[OP_EXIT] = OP_EXIT, [OP_HCF] = OP_HCF,
+		[5] = OP_HCF, [6] = OP_HCF, [7] = OP_HCF,
+		[8] = OP_HCF, [9] = OP_HCF
 	};
 #define STEP				\
 	switch(*pc) {			\
@@ -141,7 +145,7 @@ void run_vm() {
 			code[i] = jmp[OP_LOOKUP];
 		}
 		code[-1] = jmp[OP_EXIT];
-		code[s] = jmp[OP_LOOKUP];
+		code[s] = jmp[OP_HCF];
 	}
 
 	instr *pc = code+m[PC];
